@@ -81,6 +81,11 @@ jsonpath-lib = "0.3.0"  # For JSON path expressions in routing conditions
 utoipa = { version = "4.2.0", features = ["axum_extras", "yaml"] }
 utoipa-swagger-ui = { version = "6.0.0", features = ["axum"] }
 
+# Authentication
+openid = "0.12.0"
+keycloak = "20.0.3"
+tower-http = { version = "0.4.4", features = ["trace", "cors", "auth"] }
+
 [dev-dependencies]
 mockito = "1.2.0"
 temp-env = "0.3.6"
