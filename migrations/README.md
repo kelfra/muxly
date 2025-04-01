@@ -14,6 +14,7 @@ This directory contains all database schema migrations for the Muxly project. Mi
 1. **20230501000000_initial** - Initial schema with connectors, schedules, and basic tables
 2. **20230502000000_router_config** - Router configuration tables for destinations and rules
 3. **20230503000000_scheduler_jobs** - Scheduler jobs and executions tables
+4. **20230504000000_auth_tables** - Authentication tables for users, roles, and permissions
 
 ## Running Migrations
 

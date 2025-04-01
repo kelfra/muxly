@@ -21,6 +21,14 @@ The Muxly database is organized into several related tables to support the core 
    - Job Executions
    - Webhook Triggers
 
+4. **Authentication Tables**
+   - Users
+   - Roles
+   - Permissions
+   - User Roles
+   - Role Permissions
+   - Auth Sessions
+
 ## Core Tables
 
 ### Connectors
@@ -183,12 +191,113 @@ CREATE TABLE IF NOT EXISTS webhook_triggers (
 
 Defines webhook endpoints that can trigger scheduled jobs.
 
+## Authentication Tables
+
+### Users
+
+```sql
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    display_name TEXT,
+    password_hash TEXT, -- Only for local authentication
+    external_id TEXT, -- For Keycloak/external auth
+    auth_provider TEXT NOT NULL DEFAULT 'local', -- 'local', 'keycloak', etc.
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+Stores user accounts, supporting both local authentication and external providers like Keycloak.
+
+### Roles
+
+```sql
+CREATE TABLE IF NOT EXISTS roles (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+Defines roles that can be assigned to users.
+
+### Permissions
+
+```sql
+CREATE TABLE IF NOT EXISTS permissions (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    resource TEXT NOT NULL, -- The resource this permission applies to
+    action TEXT NOT NULL, -- 'read', 'write', 'execute', etc.
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+Defines granular permissions that can be assigned to roles.
+
+### User Roles
+
+```sql
+CREATE TABLE IF NOT EXISTS user_roles (
+    user_id TEXT NOT NULL,
+    role_id TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, role_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+);
+```
+
+Associates users with roles in a many-to-many relationship.
+
+### Role Permissions
+
+```sql
+CREATE TABLE IF NOT EXISTS role_permissions (
+    role_id TEXT NOT NULL,
+    permission_id TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (role_id, permission_id),
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+    FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
+);
+```
+
+Associates roles with permissions in a many-to-many relationship.
+
+### Auth Sessions
+
+```sql
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    token_hash TEXT NOT NULL,
+    refresh_token_hash TEXT,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_accessed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+```
+
+Tracks active authentication sessions.
+
 ## Relationships
 
 - A **Connector** can have multiple **Routes** and **Scheduler Jobs**
 - A **Route** connects a **Connector** to **Routing Rules**
 - **Routing Rules** apply **Transformations** and route to **Destinations**
 - **Scheduler Jobs** have **Job Executions** and can be triggered via **Webhook Triggers**
+- **Users** are assigned **Roles** through **User Roles**
+- **Roles** are granted **Permissions** through **Role Permissions**
+- **Users** can have multiple **Auth Sessions**
 
 ## Schema Migrations
 
