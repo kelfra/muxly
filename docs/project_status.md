@@ -19,6 +19,7 @@ Muxly is a lightweight, cross-platform service written in Rust that enables SaaS
 - **Transform** all data into consistent JSON format
 - **Route** data to various destinations (Prometheus, files, webhooks)
 - **Schedule** data syncs using cron, webhooks, or manual API triggers
+- **Authenticate** and authorize users with role-based access control
 
 ## Project Structure
 
@@ -85,6 +86,7 @@ We have successfully implemented the connectors module with support for various 
 - **BigQuery Connector**: Integration with Google BigQuery for SQL-based data extraction
 - **GA4 Connector**: Integration with Google Analytics 4 for metrics and dimensions
 - **HubSpot Connector**: Integration with HubSpot CRM for contacts, companies, and deals
+- **Custom API Connector**: Flexible connector for custom API integrations
 - **Plugin System**: Support for custom connectors through a dynamic loading mechanism
 
 Each connector includes:
@@ -94,8 +96,8 @@ Each connector includes:
 - Configuration templates for easy setup
 - Connection testing capabilities
 
-#### 4. Router Module Destinations
-We have successfully implemented various destination types for the Router module:
+#### 4. Router Module
+We have successfully implemented the Router module with destinations, rules, and routing logic:
 
 - **Destination Base**: Common traits, factories, and utilities for all destinations
 - **Database Destination**: For storing data in SQL databases with configurable mappings
@@ -106,89 +108,86 @@ We have successfully implemented various destination types for the Router module
 - **Slack Destination**: For sending notifications to Slack channels
 - **Webhook Destination**: For sending data to HTTP endpoints
 
-Each destination includes:
-- Configuration options with sensible defaults
-- Error handling and connection verification
-- Support for both individual and batch data sending
-- Templating capabilities for customized output formats
+- **Routing Rules and Conditions**: Dynamic routing based on data content
+- **Transformations**: Data modification before routing
+- **Error Handling**: Configurable error handling strategies
 
-#### 5. Router Module Rules
-We have implemented routing rules and conditions that allow for dynamic routing of data:
+#### 5. Authentication System
+We have implemented a comprehensive authentication and authorization system:
 
-- **Condition Evaluation**: Support for complex conditions using JSONPath
-- **Rule Prioritization**: Rules are evaluated in priority order
-- **Transformation Pipeline**: Data transformations before sending to destinations
-- **Dynamic Destination Selection**: Routing to specific destinations based on data content
-- **Error Handling**: Configurable error handling strategies for rules
+- **Local Authentication**: Username/password authentication with secure password hashing
+- **Keycloak Integration**: SSO with Keycloak identity provider
+- **Role-Based Access Control**: Configurable roles and permissions
+- **Token Management**: JWT token generation, validation, and refreshing
+- **Secure Credential Storage**: Encrypted storage for sensitive credentials
 
-The implemented transformations include:
-- Field renaming and removal
-- Filtering based on conditions
-- Formula-based calculations
-- String formatting with template variables
-- Array flattening for complex data
+#### 6. Database Migrations
+We have implemented database schema migrations for all components:
 
-#### 6. Documentation
+- **Core Tables**: Settings, connectors, transformations
+- **Router Tables**: Routes, destinations, rules, transformations
+- **Scheduler Tables**: Jobs, executions, webhooks
+- **Authentication Tables**: Users, roles, permissions, sessions
+
+#### 7. Documentation
 We have created comprehensive documentation for both developers and users:
 
 - **Developer Documentation**:
   - Implementation details for each module
   - Known issues and future improvements
   - Implementation plan for upcoming features
+  - Database schema documentation
 
 - **User Documentation**:
   - Configuration guide with examples
+  - Authentication guide
   - Connectors usage and authentication
   - Scheduler configuration and job setup
   - Router configuration and destinations
   - Router rules and conditions
+  - API reference
   - Troubleshooting guides
 
 ### In Progress Components
 
-#### 1. Database Migrations
-We are preparing database schema migrations for persistent storage of:
+#### 1. API Documentation Completion
+We are finalizing the API documentation for all endpoints:
 
-- Configuration data
-- Connector definitions
-- Job schedules and history
-- User authentication and authorization
+- Ensuring all endpoints are documented in the OpenAPI specification
+- Adding examples and use cases for each endpoint
+- Validating request and response schemas
 
-### Planned Components
+#### 2. User Guide Enhancement
+We are enhancing the user guides with:
 
-Based on the implementation plan, our next priorities are:
-
-#### 1. Complete Router Module
-The remaining components of the router module will handle:
-
-- Routing rules and conditions
-- Error handling and delivery confirmation
-- Transformation pipelines
-- JSON path filtering
+- More detailed examples
+- Common use case walkthroughs
+- Best practices for each module
+- Troubleshooting guidance
 
 ## Known Issues
 
-- There are compile errors in several modules that reference API routes and handlers not yet implemented
-- Some middleware implementations need updating to match the latest Axum version
-- The main application has references to components that will be implemented in future PRs
-- Dependencies in Cargo.toml need to be updated to maintain compatibility with the latest Rust version
+- There are some edge cases in connector error handling that need improvement
+- The main application has references to components that will be enhanced in future PRs
+- Some dependencies in Cargo.toml may need updates to maintain compatibility with the latest Rust version
 
 ## Implementation Timeline
 
-### Phase 1: Core Infrastructure (2-3 weeks) - Completed
+### Phase 1: Core Infrastructure (2-3 weeks) - COMPLETED
 - ✅ Configuration module
 - ✅ Scheduler module implementation
 - ✅ Default configurations
 
-### Phase 2: Connectors (3-4 weeks) - Completed
+### Phase 2: Connectors (3-4 weeks) - COMPLETED
 - ✅ Connector trait and base
 - ✅ BigQuery integration
 - ✅ GA4 integration
 - ✅ HubSpot integration
+- ✅ Custom API connector
 - ✅ Plugin system for custom connectors
 - ✅ Documentation for developers and users
 
-### Phase 3: Router (2-3 weeks) - Completed
+### Phase 3: Router (2-3 weeks) - COMPLETED
 - ✅ Router trait and base
 - ✅ Output destinations
   - ✅ Database destination
@@ -200,19 +199,21 @@ The remaining components of the router module will handle:
   - ✅ Webhook destination
 - ✅ Routing rules and conditions
 
-### Phase 4: Documentation & Deployment (1-2 weeks) - In Progress
+### Phase 4: Authentication & Documentation (1-2 weeks) - COMPLETED
+- ✅ Authentication system implementation
+- ✅ Keycloak integration
 - ✅ Database migrations setup
 - ✅ API documentation (OpenAPI/Swagger)
 - ✅ Deployment scripts
 - ✅ CI/CD integration
-- ⏳ API documentation completion for all endpoints
-- ⏳ User guide completion for all features
+- ✅ User guide for all features
 
 ## Next Steps
 
-With the core infrastructure in place, the next steps are:
+With the core implementation complete, the next steps are:
 
-1. Complete API documentation for all endpoints
-2. Enhance user guides for all features
-3. Implement comprehensive testing
-4. Prepare for production deployment by validating schema migrations 
+1. Increase test coverage across all components
+2. Optimize performance for large data volumes
+3. Add more connectors for additional data sources
+4. Enhance monitoring and observability features
+5. Consider building a simple web UI for management 
