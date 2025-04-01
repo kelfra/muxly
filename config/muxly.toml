@@ -1,0 +1,145 @@
+# Muxly Configuration File
+# This is a sample configuration with sensible defaults
+
+[server]
+host = "0.0.0.0"
+port = 3000
+log_level = "info"
+max_json_payload_size = "5MB"
+enable_compression = true
+
+[database]
+type = "sqlite"  # Options: "sqlite", "postgres"
+
+[database.sqlite]
+path = "./data/muxly.db"
+journal_mode = "WAL"
+synchronous = "NORMAL"
+cache_size = 2000
+foreign_keys = true
+
+# Uncomment to use PostgreSQL instead of SQLite
+# [database.postgres]
+# host = "localhost"
+# port = 5432
+# username = "muxly"
+# password = "muxly_password"
+# database = "muxly"
+# ssl = false
+# max_connections = 5
+
+# Sample connector configurations
+# Each connector needs its own [[connectors]] section
+
+# Internal API connector example
+[[connectors]]
+id = "internal_api"
+name = "Internal API Connector"
+connector_type = "internal_api"
+enabled = true
+
+[connectors.auth]
+auth_type = "bearer"
+[connectors.auth.params]
+token = "your-auth-token"
+
+[connectors.connection]
+base_url = "http://your-internal-api.example.com"
+endpoint = "/api/metrics"
+method = "GET"
+timeout_seconds = 30
+[connectors.connection.headers]
+Content-Type = "application/json"
+Accept = "application/json"
+[connectors.connection.query_params]
+from = "{{last_run_date}}"
+to = "{{current_date}}"
+
+[connectors.schedule]
+schedule_type = "cron"
+cron_expression = "*/15 * * * *"  # Every 15 minutes
+timezone = "UTC"
+enabled = true
+
+[connectors.transform]
+timestamp_field = "timestamp"
+flatten_nested = true
+remove_nulls = true
+[connectors.transform.mappings]
+id = "{{row.id}}"
+timestamp = "{{row.timestamp}}"
+data = "{{row}}"
+
+# BigQuery connector example (commented out)
+# [[connectors]]
+# id = "bigquery"
+# name = "BigQuery Connector"
+# connector_type = "bigquery"
+# enabled = false
+# 
+# [connectors.auth]
+# auth_type = "service_account"
+# [connectors.auth.params]
+# credentials_file = "/path/to/credentials.json"
+# 
+# [connectors.connection]
+# project_id = "your-project-id"
+# location = "US"
+# timeout_seconds = 300
+# 
+# [connectors.query]
+# sql = """
+# SELECT * FROM `project.dataset.table` 
+# WHERE created_at >= @start_date AND created_at < @end_date 
+# LIMIT 1000
+# """
+# [connectors.query.parameters]
+# start_date = "{{last_run_date}}"
+# end_date = "{{current_date}}"
+# 
+# [connectors.schedule]
+# schedule_type = "cron"
+# cron_expression = "0 */6 * * *"  # Every 6 hours
+# timezone = "UTC"
+# enabled = false
+# 
+# [connectors.transform]
+# timestamp_field = "created_at"
+# flatten_nested = true
+# remove_nulls = true
+# [connectors.transform.mappings]
+# id = "{{row.id}}"
+# timestamp = "{{row.created_at}}"
+# data = "{{row}}"
+
+# Output destinations
+[[outputs]]
+type = "file"
+enabled = true
+[outputs.config]
+path = "./data/output"
+format = "json"
+filename_template = "{{connector_id}}_{{date}}.json"
+max_file_size_mb = 10
+rotate_files = true
+
+# [[outputs]]
+# type = "prometheus"
+# enabled = false
+# [outputs.config]
+# metrics_endpoint = "/metrics"
+# metric_name_template = "muxly_{{connector_id}}_{{metric_name}}"
+# include_labels = true
+
+# [[outputs]]
+# type = "webhook"
+# enabled = false
+# [outputs.config]
+# url = "http://example.com/webhook"
+# method = "POST"
+# [outputs.config.headers]
+# Content-Type = "application/json"
+# Authorization = "Bearer {{webhook_token}}"
+# [outputs.config.options]
+# batch_size = 100
+# timeout_seconds = 30 

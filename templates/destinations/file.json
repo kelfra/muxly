@@ -1,0 +1,18 @@
+{
+  "id": "file_destination",
+  "type": "file",
+  "enabled": true,
+  "config": {
+    "path": "./data/output",
+    "format": "json",
+    "filename_template": "{{connector_id}}_{{date}}.json",
+    "max_file_size_mb": 10,
+    "rotate_files": true
+  },
+  "comments": [
+    "This template configures a file destination that writes data to JSON files.",
+    "The filename will include the connector ID and date.",
+    "Files will be stored in the ./data/output directory.",
+    "You can change the format to 'csv' or 'jsonl' if needed."
+  ]
+} 

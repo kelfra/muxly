@@ -1,0 +1,73 @@
+{
+  "muxly": {
+    "server": {
+      "host": "0.0.0.0",
+      "port": 3000,
+      "log_level": "info"
+    },
+    "database": {
+      "type": "sqlite",
+      "sqlite": {
+        "path": "./data/muxly.db"
+      }
+    },
+    "connectors": [
+      {
+        "id": "internal_api",
+        "name": "Internal API Connector",
+        "connector_type": "internal_api",
+        "enabled": true,
+        "auth": {
+          "auth_type": "bearer",
+          "params": {
+            "token": "your-auth-token"
+          }
+        },
+        "connection": {
+          "base_url": "http://your-internal-api.example.com",
+          "endpoint": "/api/metrics",
+          "method": "GET",
+          "timeout_seconds": 30,
+          "headers": {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          "query_params": {
+            "from": "{{last_run_date}}",
+            "to": "{{current_date}}"
+          }
+        },
+        "schedule": {
+          "schedule_type": "cron",
+          "cron_expression": "*/15 * * * *",
+          "timezone": "UTC",
+          "enabled": true
+        },
+        "transform": {
+          "timestamp_field": "timestamp",
+          "mappings": {
+            "id": "{{row.id}}",
+            "timestamp": "{{row.timestamp}}",
+            "data": "{{row}}"
+          },
+          "flatten_nested": true,
+          "remove_nulls": true
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "id": "file_output",
+        "type": "file",
+        "enabled": true,
+        "config": {
+          "path": "./data/output",
+          "format": "json",
+          "filename_template": "{{connector_id}}_{{date}}.json",
+          "max_file_size_mb": 10,
+          "rotate_files": true
+        }
+      }
+    ]
+  }
+} 
