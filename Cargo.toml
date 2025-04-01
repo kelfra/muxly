@@ -77,6 +77,10 @@ log = "0.4.20"       # Logging facade
 # Router dependencies
 jsonpath-lib = "0.3.0"  # For JSON path expressions in routing conditions
 
+# API documentation
+utoipa = { version = "4.2.0", features = ["axum_extras", "yaml"] }
+utoipa-swagger-ui = { version = "6.0.0", features = ["axum"] }
+
 [dev-dependencies]
 mockito = "1.2.0"
 temp-env = "0.3.6"

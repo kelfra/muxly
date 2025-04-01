@@ -1,21 +1,42 @@
 # Muxly Documentation
 
-This directory contains the official documentation for the Muxly project.
+This directory contains comprehensive documentation for the Muxly service.
 
-## Structure
+## Documentation Structure
 
-- **[project_status.md](./project_status.md)**: Current project status, completed components, and next steps
-- **development/**: Documentation for developers working on the project
-  - **[implementation_plan.md](./development/implementation_plan.md)**: Detailed implementation plan for the project
-  - **[known_issues.md](./development/known_issues.md)**: Current known issues and limitations
-  - **[connectors.md](./development/connectors.md)**: Connectors module implementation details
-- **user-guide/**: Documentation for users of Muxly
-  - **[configuration.md](./user-guide/configuration.md)**: Configuration guide
-  - **[connectors.md](./user-guide/connectors.md)**: Available connectors and their configuration
-  - **[scheduler.md](./user-guide/scheduler.md)**: Scheduler usage and configuration
+- **[User Guide](user-guide/)**: Documentation for users of Muxly
+- **[Development](development/)**: Documentation for developers
+- **[API Documentation](#api-documentation)**: OpenAPI documentation
+- **[Examples](examples/)**: Example configurations and use cases
+- **[Quickstart](quickstart/)**: Get started quickly with Muxly
+- **[Troubleshooting](troubleshooting/)**: Solve common issues
+
+## API Documentation
+
+Muxly provides a comprehensive API that is documented using OpenAPI. When running the Muxly service, you can access the interactive API documentation at:
+
+```
+http://localhost:3000/swagger-ui/
+```
+
+This provides a complete reference for all available endpoints, request/response formats, and authentication requirements.
+
+The API is organized into the following sections:
+
+- **Health**: Health check endpoints
+- **Connectors**: Connector management endpoints
+- **Router**: Router management endpoints
+- **Scheduler**: Scheduler management endpoints
 
 ## Getting Started
 
-For new users, we recommend starting with the [project_status.md](./project_status.md) to get an overview of the current state of the project.
+If you're new to Muxly, we recommend starting with:
 
-For developers looking to contribute, the [development/implementation_plan.md](./development/implementation_plan.md) provides a detailed roadmap of the project. 
+1. [Quickstart Guide](quickstart/README.md)
+2. [Configuration Guide](user-guide/configuration.md)
+3. [Connectors Guide](user-guide/connectors.md)
+4. [Router Guide](user-guide/router.md)
+
+## Contributing to Documentation
+
+If you'd like to improve the documentation, please submit a pull request with your changes. Make sure to follow the existing documentation structure and style. 
