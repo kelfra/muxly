@@ -86,6 +86,64 @@ API endpoints:
 - `POST /jobs/:id/disable` - Disable a job
 - `GET /executions/:id` - Get job execution status
 
+## Configuration Module
+
+Muxly includes a robust configuration system that provides flexible management of application settings:
+
+### Features
+
+- **Multiple Formats**: Support for YAML, JSON, and TOML configuration files
+- **Environment Variables**: Override configuration via environment variables
+- **Validation**: Comprehensive validation with detailed error reporting
+- **Schema Support**: JSON Schema for documentation and validation
+- **Defaults**: Sensible default values for all settings
+- **Strongly Typed**: Type-safe configuration with Rust structs
+
+### Configuration Structure
+
+The configuration is organized into these main sections:
+
+```yaml
+# Main sections
+app:       # General application settings
+connectors: # Data source configurations
+router:    # Data destination configurations
+scheduler: # Job scheduling settings
+```
+
+### Loading Configuration
+
+Configuration is loaded in this order of precedence:
+
+1. Default values
+2. Configuration files
+3. Environment variables
+
+Example usage:
+
+```rust
+// Load configuration
+let config_path = Some("config/development.yaml");
+let config = config::init_config(config_path).await?;
+
+// Access configuration values
+let port = config.app.port;
+let database_url = &config.app.database_url;
+```
+
+### Environment Variables
+
+Environment variables can override any configuration value using the format:
+
+```
+MUXLY_SECTION_KEY=value
+```
+
+For example:
+- `MUXLY_PORT=8080` overrides the app.port setting
+- `MUXLY_LOG_LEVEL=debug` sets the logging level
+- `MUXLY_DATABASE_URL=postgres://...` overrides the database connection
+
 ## Integration
 
 The scheduler modules can be used individually or integrated together using the `SchedulerIntegration` class, which provides a unified API for managing all scheduler types.

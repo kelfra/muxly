@@ -39,5 +39,11 @@ This PR implements two core components of the Muxly system:
 - Added progress summary
 - Added inline documentation for all public APIs
 
+## Known Issues
+- There are compile errors in several modules that reference API routes and handlers not yet implemented
+- Some middleware implementations need updating to match the latest Axum version
+- The main application has references to components that will be implemented in future PRs
+- These issues will be addressed in subsequent PRs as we implement the remaining modules
+
 ## Next Steps
 The next phase will focus on implementing the Connectors Module for data source integration. 
