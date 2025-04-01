@@ -1,0 +1,53 @@
+# Muxly Development Configuration
+
+# Application settings
+app:
+  name: Muxly
+  host: 127.0.0.1
+  port: 3000
+  log_level: debug  # More verbose logging for development
+  database_url: sqlite:muxly-dev.db
+  max_connections: 5
+  connection_timeout: 30
+  cors_enabled: true  # Enable CORS for development
+  cors_origins: 
+    - http://localhost:3000
+    - http://localhost:8080
+  auth_enabled: false
+
+# Scheduler settings
+scheduler:
+  # API scheduler configuration
+  api:
+    enabled: true
+    max_concurrent_jobs: 5
+    job_timeout: 300
+    max_history_size: 100
+
+  # Cron scheduler configuration
+  cron:
+    enabled: true
+    catch_up: false
+
+  # Webhook scheduler configuration
+  webhook:
+    enabled: true
+    secret: development-webhook-secret
+    max_payload_size: 1048576  # 1 MB
+    validate_signatures: true
+
+# Example enabled outputs for development
+router:
+  file:
+    enabled: true
+    output_dir: ./output-dev
+    format: json
+    append: true
+    rotation: daily
+    max_file_size: 10  # Smaller file size for development
+
+  prometheus:
+    enabled: true
+    metrics_path: /metrics
+    include_labels: true
+    default_metric_type: gauge 
