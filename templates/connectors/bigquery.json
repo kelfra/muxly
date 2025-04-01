@@ -1,0 +1,49 @@
+{
+  "id": "bigquery_connector",
+  "name": "BigQuery Connector",
+  "connector_type": "bigquery",
+  "enabled": true,
+  "auth": {
+    "auth_type": "service_account",
+    "params": {
+      "credentials_file": "",
+      "credentials_json": ""
+    }
+  },
+  "connection": {
+    "project_id": "your-project-id",
+    "location": "US",
+    "timeout_seconds": 300
+  },
+  "query": {
+    "sql": "SELECT * FROM `project.dataset.table` WHERE created_at >= @start_date AND created_at < @end_date LIMIT 1000",
+    "parameters": {
+      "start_date": "{{last_run_date}}",
+      "end_date": "{{current_date}}"
+    }
+  },
+  "schedule": {
+    "schedule_type": "cron",
+    "cron_expression": "0 */6 * * *",
+    "timezone": "UTC",
+    "enabled": true
+  },
+  "transform": {
+    "timestamp_field": "created_at",
+    "mappings": {
+      "id": "{{row.id}}",
+      "timestamp": "{{row.created_at}}",
+      "data": "{{row}}"
+    },
+    "flatten_nested": true,
+    "remove_nulls": true
+  },
+  "comments": [
+    "This template connects to BigQuery and runs a SQL query with date parameters.",
+    "To use this template:",
+    "1. Fill in your project_id",
+    "2. Provide credentials via credentials_file or credentials_json",
+    "3. Update the SQL query to match your data",
+    "4. Adjust the schedule as needed"
+  ]
+} 

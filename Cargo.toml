@@ -1,0 +1,71 @@
+[package]
+name = "muxly"
+version = "0.1.0"
+edition = "2021"
+authors = ["Kelvin"]
+description = "A lightweight, cross-platform service for collecting, unifying, and routing product metrics and data"
+readme = "README.md"
+license = "MIT"
+
+[dependencies]
+# API Framework
+axum = "0.7.2"
+tokio = { version = "1.34.0", features = ["full"] }
+tower = "0.4.13"
+tower-http = { version = "0.4.4", features = ["trace", "cors"] }
+
+# Serialization/Deserialization
+serde = { version = "1.0.193", features = ["derive"] }
+serde_json = "1.0.108"
+serde_yaml = "0.9.27"
+toml = "0.8.8"
+
+# Database
+sqlx = { version = "0.7.3", features = ["runtime-tokio-rustls", "sqlite", "postgres", "json", "migrate", "chrono"] }
+
+# Logging and tracing
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+
+# Authentication
+jsonwebtoken = "9.2.0"
+bcrypt = "0.15.0"
+
+# Scheduling
+cron = "0.12.0"
+chrono = "0.4.31"
+
+# Networking
+reqwest = { version = "0.11.22", features = ["json", "rustls-tls"] }
+url = "2.4.1"
+
+# Error handling
+thiserror = "1.0.50"
+anyhow = "1.0.75"
+
+# Configuration
+config = "0.13.4"
+dotenv = "0.15.0"
+
+# Utilities
+async-trait = "0.1.74"
+futures = "0.3.29"
+uuid = { version = "1.6.1", features = ["v4", "serde"] }
+
+[dev-dependencies]
+mockito = "1.2.0"
+once_cell = "1.18.0"
+temp-env = "0.3.6"
+tokio-test = "0.4.3"
+
+[features]
+default = ["sqlite"]
+sqlite = []
+postgres = []
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
