@@ -16,6 +16,16 @@ Welcome to the Muxly User Guide! This documentation will help you understand how
 - [Router Rules](./router-rules.md) - Setting up conditional routing rules
 - [Destinations](./destinations.md) - Supported data destinations and configuration
 
+## API Documentation
+
+Muxly provides a comprehensive API with interactive documentation. When running Muxly, access the Swagger UI at:
+
+```
+http://localhost:3000/swagger-ui/
+```
+
+This provides detailed documentation for all endpoints with request/response schemas and the ability to try API calls directly from the browser.
+
 ## Tutorials
 
 - [Setting up your first connector](./tutorials/first-connector.md)

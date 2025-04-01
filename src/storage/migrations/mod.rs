@@ -9,6 +9,7 @@ pub async fn run_migrations(pool: &DatabasePool) -> Result<()> {
     info!("Running database migrations...");
     
     // Get the migrations directory path
+    // Using SQLx standard migrations format (timestamp_name)
     let migration_path = Path::new("./migrations");
     
     if !migration_path.exists() {

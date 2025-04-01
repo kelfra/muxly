@@ -10,9 +10,13 @@ A lightweight, cross-platform service written in Rust that enables SaaS companie
 - **Connectors Module**: Implementations for BigQuery, GA4, HubSpot, plus a plugin system
 - **Router Module Destinations**: Multiple destination types including Database, Email, File, Prometheus, S3, Slack, and Webhook
 - **Router Module Rules**: Conditional routing and transformations based on data content
+- **Database Migrations**: Schema migrations for persistent storage
+- **OpenAPI Documentation**: Interactive API documentation with Swagger UI
+- **Deployment Tools**: Docker and AWS deployment scripts with CI/CD
 
 🚧 **In Progress**:
-- **Database Migrations**: Schema migrations for persistent storage (Coming in next release)
+- **API Documentation**: Completing endpoint documentation
+- **User Guides**: Enhancing documentation for all features
 
 ## Features
 
