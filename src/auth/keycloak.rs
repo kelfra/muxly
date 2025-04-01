@@ -4,11 +4,27 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::{debug, error, info};
+use axum::{
+    http::{HeaderMap, Request, StatusCode},
+    middleware::Next,
+    response::Response,
+    Json,
+    extract::FromRef,
+};
+use std::sync::Arc;
+use std::collections::HashSet;
+use futures::future::BoxFuture;
+use keycloak::{KeycloakError, KeycloakAdmin};
+use std::future::{ready, Ready};
+use tower_http::auth::AsyncAuthorizeRequest;
+use crate::error::{MuxlyError, Result};
+use std::future::Future;
+use std::pin::Pin;
 
 use crate::auth::tokens::AuthToken;
 
-/// Keycloak client configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Keycloak configuration
+#[derive(Debug, Clone, Deserialize)]
 pub struct KeycloakConfig {
     /// URL of the Keycloak server
     pub server_url: String,
@@ -17,211 +33,158 @@ pub struct KeycloakConfig {
     /// Client ID
     pub client_id: String,
     /// Client secret (optional, for confidential clients)
-    pub client_secret: Option<String>,
+    pub client_secret: String,
+    pub required_role: Option<String>,
 }
 
-/// Keycloak client for authentication and authorization
-pub struct KeycloakClient {
+/// User information extracted from JWT token
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserInfo {
+    pub sub: String,
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub roles: Vec<String>,
+}
+
+/// Keycloak auth service
+#[derive(Debug, Clone)]
+pub struct KeycloakAuth {
     /// HTTP client
-    client: Client,
+    client: Arc<KeycloakAdmin>,
     /// Configuration for the Keycloak client
     config: KeycloakConfig,
+    required_roles: HashSet<String>,
 }
 
-impl KeycloakClient {
-    /// Create a new Keycloak client
-    pub fn new(params: &Value) -> Self {
-        // Extract Keycloak configuration from parameters
-        let config = KeycloakConfig {
-            server_url: params.get("server_url")
-                .and_then(|v| v.as_str())
-                .unwrap_or("http://localhost:8080")
-                .to_string(),
-            realm: params.get("realm")
-                .and_then(|v| v.as_str())
-                .unwrap_or("master")
-                .to_string(),
-            client_id: params.get("client_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("muxly")
-                .to_string(),
-            client_secret: params.get("client_secret")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string()),
+impl KeycloakAuth {
+    /// Create a new Keycloak auth service
+    pub async fn new(config: KeycloakConfig) -> Result<Self> {
+        let client = KeycloakAdmin::new(&config.server_url, &config.realm)
+            .auth_client(&config.client_id, &config.client_secret)
+            .build()
+            .map_err(|e| MuxlyError::Authentication(format!("Failed to create Keycloak client: {}", e)))?;
+        
+        // Parse required roles if any
+        let required_roles = if let Some(role) = &config.required_role {
+            let mut roles = HashSet::new();
+            roles.insert(role.clone());
+            roles
+        } else {
+            HashSet::new()
         };
         
-        // Create HTTP client with reasonable timeout
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(30))
-            .build()
-            .unwrap_or_default();
-        
-        Self { client, config }
-    }
-    
-    /// Get the token endpoint URL
-    fn token_endpoint(&self) -> String {
-        format!(
-            "{}/realms/{}/protocol/openid-connect/token",
-            self.config.server_url,
-            self.config.realm
-        )
-    }
-    
-    /// Get the userinfo endpoint URL
-    fn userinfo_endpoint(&self) -> String {
-        format!(
-            "{}/realms/{}/protocol/openid-connect/userinfo",
-            self.config.server_url,
-            self.config.realm
-        )
-    }
-    
-    /// Authenticate with username and password
-    pub async fn authenticate(&self, username: &str, password: &str) -> Result<AuthToken> {
-        debug!("Authenticating user {} with Keycloak", username);
-        
-        let mut form = vec![
-            ("grant_type", "password"),
-            ("username", username),
-            ("password", password),
-            ("client_id", &self.config.client_id),
-        ];
-        
-        // Add client secret if available
-        if let Some(secret) = &self.config.client_secret {
-            form.push(("client_secret", secret));
-        }
-        
-        let response = self.client
-            .post(&self.token_endpoint())
-            .form(&form)
-            .send()
-            .await?;
-        
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await?;
-            error!("Keycloak authentication failed: {} - {}", status, body);
-            return Err(anyhow!("Authentication failed: {}", status));
-        }
-        
-        let token_response: serde_json::Value = response.json().await?;
-        
-        let access_token = token_response.get("access_token")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow!("Missing access_token in response"))?
-            .to_string();
-        
-        let refresh_token = token_response.get("refresh_token")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow!("Missing refresh_token in response"))?
-            .to_string();
-        
-        let expires_in = token_response.get("expires_in")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(300);
-        
-        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-        let expires_at = now + expires_in;
-        
-        Ok(AuthToken {
-            access_token,
-            refresh_token,
-            token_type: "Bearer".to_string(),
-            expires_at,
+        Ok(KeycloakAuth {
+            client: Arc::new(client),
+            config,
+            required_roles,
         })
     }
     
-    /// Validate a token
-    pub async fn validate_token(&self, token: &str) -> Result<bool> {
-        debug!("Validating token with Keycloak");
-        
-        // We'll use the userinfo endpoint to validate the token
-        // If the token is valid, this will return user information
-        // If not, it will return a 401 Unauthorized
-        let response = self.client
-            .get(&self.userinfo_endpoint())
-            .header("Authorization", format!("Bearer {}", token))
-            .send()
-            .await?;
-        
-        Ok(response.status().is_success())
-    }
-    
-    /// Refresh a token
-    pub async fn refresh_token(&self, refresh_token: &str) -> Result<AuthToken> {
-        debug!("Refreshing token with Keycloak");
-        
-        let mut form = vec![
-            ("grant_type", "refresh_token"),
-            ("refresh_token", refresh_token),
-            ("client_id", &self.config.client_id),
-        ];
-        
-        // Add client secret if available
-        if let Some(secret) = &self.config.client_secret {
-            form.push(("client_secret", secret));
-        }
-        
-        let response = self.client
-            .post(&self.token_endpoint())
-            .form(&form)
-            .send()
-            .await?;
-        
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await?;
-            error!("Keycloak token refresh failed: {} - {}", status, body);
-            return Err(anyhow!("Token refresh failed: {}", status));
-        }
-        
-        let token_response: serde_json::Value = response.json().await?;
-        
-        let access_token = token_response.get("access_token")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow!("Missing access_token in response"))?
+    /// Verify a token and extract user info
+    pub async fn verify_token(&self, token: &str) -> Result<UserInfo> {
+        // Decode and validate the token
+        let decoded = self.client.decode_token(token)
+            .map_err(|e| MuxlyError::Authentication(format!("Token validation failed: {}", e)))?;
+            
+        // Get user ID
+        let sub = decoded.subject()
+            .ok_or_else(|| MuxlyError::Authentication("Subject not found in token".to_string()))?
             .to_string();
-        
-        let refresh_token = token_response.get("refresh_token")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow!("Missing refresh_token in response"))?
-            .to_string();
-        
-        let expires_in = token_response.get("expires_in")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(300);
-        
-        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-        let expires_at = now + expires_in;
-        
-        Ok(AuthToken {
-            access_token,
-            refresh_token,
-            token_type: "Bearer".to_string(),
-            expires_at,
-        })
-    }
-    
-    /// Get user information from token
-    pub async fn get_user_info(&self, token: &str) -> Result<Value> {
-        debug!("Getting user info from Keycloak");
-        
-        let response = self.client
-            .get(&self.userinfo_endpoint())
-            .header("Authorization", format!("Bearer {}", token))
-            .send()
-            .await?;
-        
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await?;
-            error!("Failed to get user info: {} - {}", status, body);
-            return Err(anyhow!("Failed to get user info: {}", status));
+            
+        // Extract roles
+        let mut roles = Vec::new();
+        if let Some(realm_access) = decoded.realm_access() {
+            roles = realm_access.roles.clone();
         }
         
-        let user_info = response.json().await?;
+        // Verify required roles if any
+        if !self.required_roles.is_empty() {
+            let has_required_role = roles.iter().any(|role| self.required_roles.contains(role));
+            if !has_required_role {
+                return Err(MuxlyError::Authentication("Insufficient permissions".to_string()));
+            }
+        }
+        
+        // Extract name and email
+        let name = decoded.preferred_username().map(String::from);
+        let email = decoded.email().map(String::from);
+        
+        // Create user info
+        let user_info = UserInfo {
+            sub,
+            name,
+            email,
+            roles,
+        };
+        
         Ok(user_info)
+    }
+    
+    /// Extract token from authorization header
+    pub fn extract_token(headers: &HeaderMap) -> Result<String> {
+        let auth_header = headers.get("Authorization")
+            .ok_or_else(|| MuxlyError::Authentication("Missing Authorization header".to_string()))?
+            .to_str()
+            .map_err(|_| MuxlyError::Authentication("Invalid Authorization header".to_string()))?;
+            
+        if !auth_header.starts_with("Bearer ") {
+            return Err(MuxlyError::Authentication("Invalid Authorization header format. Expected Bearer token".to_string()));
+        }
+        
+        Ok(auth_header[7..].to_string())
+    }
+}
+
+/// Middleware for authentication
+pub async fn keycloak_auth_middleware<B>(
+    auth: KeycloakAuth,
+    mut req: Request<B>,
+    next: Next<B>,
+) -> Result<Response, StatusCode> {
+    // Extract token
+    let token = match KeycloakAuth::extract_token(req.headers()) {
+        Ok(token) => token,
+        Err(_) => return Err(StatusCode::UNAUTHORIZED),
+    };
+    
+    // Verify token
+    match auth.verify_token(&token).await {
+        Ok(user_info) => {
+            // Store user info in extensions for later access
+            req.extensions_mut().insert(user_info);
+            Ok(next.run(req).await)
+        },
+        Err(_) => Err(StatusCode::UNAUTHORIZED),
+    }
+}
+
+/// Extract current user from request
+pub fn get_current_user<B>(req: &Request<B>) -> Option<UserInfo> {
+    req.extensions().get::<UserInfo>().cloned()
+}
+
+/// Check if user has a specific role
+pub fn has_role<B>(req: &Request<B>, role: &str) -> bool {
+    if let Some(user) = req.extensions().get::<UserInfo>() {
+        user.roles.iter().any(|r| r == role)
+    } else {
+        false
+    }
+}
+
+/// Role-based access middleware
+pub fn require_role(role: String) -> impl Fn(Request<B>) -> Pin<Box<dyn Future<Output = Result<Request<B>, StatusCode>> + Send>> + Clone
+where
+    B: Send + 'static,
+{
+    move |req: Request<B>| {
+        let role_clone = role.clone();
+        Box::pin(async move {
+            if has_role(&req, &role_clone) {
+                Ok(req)
+            } else {
+                Err(StatusCode::FORBIDDEN)
+            }
+        })
     }
 } 

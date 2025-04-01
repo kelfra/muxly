@@ -1,10 +1,19 @@
-mod keycloak;
+pub mod keycloak;
 mod credentials;
 mod tokens;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use axum::{
+    async_trait,
+    extract::{FromRequestParts, TypedHeader},
+    headers::{authorization::Bearer, Authorization},
+    http::{request::Parts, StatusCode},
+    response::{IntoResponse, Response},
+    RequestPartsExt,
+};
+use crate::error::MuxlyError;
 
 /// Authentication configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -95,4 +104,67 @@ impl CredentialsManager {
 
 pub use credentials::Credentials;
 pub use keycloak::KeycloakClient;
-pub use tokens::AuthToken; 
+pub use tokens::AuthToken;
+
+// Re-export auth types
+pub use keycloak::{KeycloakAuth, KeycloakConfig, UserInfo};
+
+// State for authentication
+#[derive(Clone)]
+pub struct AuthState {
+    pub keycloak: Arc<KeycloakAuth>,
+}
+
+// Extractor for authenticated users
+pub struct AuthUser(pub UserInfo);
+
+#[async_trait]
+impl<S> FromRequestParts<S> for AuthUser
+where
+    AuthState: FromRequestParts<S>,
+    S: Send + Sync,
+{
+    type Rejection = Response;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        // Extract the authorization header
+        let TypedHeader(Authorization(bearer)) = parts
+            .extract::<TypedHeader<Authorization<Bearer>>>()
+            .await
+            .map_err(|_| {
+                let error = MuxlyError::Authentication("Missing or invalid authorization header".to_string());
+                error.into_response()
+            })?;
+
+        // Extract auth state
+        let auth_state = AuthState::from_request_parts(parts, state)
+            .await
+            .map_err(|_| {
+                let error = MuxlyError::Internal("Auth state not configured".to_string());
+                error.into_response()
+            })?;
+
+        // Verify the token
+        let user = auth_state
+            .keycloak
+            .verify_token(bearer.token())
+            .await
+            .map_err(|err| err.into_response())?;
+
+        Ok(AuthUser(user))
+    }
+}
+
+// Helper function to check if user has a role
+pub fn has_role(user: &UserInfo, role: &str) -> bool {
+    user.roles.iter().any(|r| r == role)
+}
+
+// Helper function to require a role
+pub fn require_role(user: &UserInfo, role: &str) -> Result<(), MuxlyError> {
+    if has_role(user, role) {
+        Ok(())
+    } else {
+        Err(MuxlyError::Authentication(format!("Missing required role: {}", role)))
+    }
+} 

@@ -2,22 +2,29 @@ mod api;
 mod auth;
 mod collector;
 mod config;
+mod error;
 mod scheduler;
 mod storage;
 mod transform;
 
-use anyhow::Result;
+use std::sync::Arc;
+use std::net::SocketAddr;
 use axum::{
     routing::get,
     Router,
+    http::Method,
+    middleware,
+    Extension,
 };
-use std::sync::Arc;
-use std::net::SocketAddr;
-use tracing::{info, Level};
+use tower_http::cors::{CorsLayer, Any};
+use tracing::{info, warn, error, Level};
 use tracing_subscriber::FmtSubscriber;
-use hyper::server::Server;
+use tokio::signal;
 
+use error::{MuxlyError, Result};
+use auth::{KeycloakAuth, KeycloakConfig, AuthState};
 use scheduler::{SchedulerConfig, SchedulerIntegration, ApiSchedulerConfig, CronConfig, WebhookConfig};
+use storage::{DatabaseConfig, init_database, shutdown_database};
 
 async fn hello_world() -> &'static str {
     "Hello, Muxly!"
@@ -30,14 +37,14 @@ async fn health_check() -> &'static str {
 // Graceful shutdown handler
 async fn shutdown_signal() {
     let ctrl_c = async {
-        tokio::signal::ctrl_c()
+        signal::ctrl_c()
             .await
             .expect("Failed to install Ctrl+C handler");
     };
 
     #[cfg(unix)]
     let terminate = async {
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        signal::unix::signal(signal::unix::SignalKind::terminate())
             .expect("Failed to install signal handler")
             .recv()
             .await;
@@ -65,6 +72,46 @@ async fn main() -> Result<()> {
 
     info!("Starting Muxly service");
 
+    // Initialize database
+    let db_config = DatabaseConfig {
+        url: "sqlite:muxly.db".to_string(),
+        ..Default::default()
+    };
+    
+    let db_pool = init_database(&db_config).await?;
+    info!("Database initialized successfully");
+
+    // Initialize Keycloak authentication
+    let keycloak_config = KeycloakConfig {
+        server_url: std::env::var("KEYCLOAK_URL").unwrap_or_else(|_| "http://localhost:8080".to_string()),
+        realm: std::env::var("KEYCLOAK_REALM").unwrap_or_else(|_| "muxly".to_string()),
+        client_id: std::env::var("KEYCLOAK_CLIENT_ID").unwrap_or_else(|_| "muxly-api".to_string()),
+        client_secret: std::env::var("KEYCLOAK_CLIENT_SECRET").unwrap_or_else(|_| "secret".to_string()),
+        required_role: Some("user".to_string()),
+    };
+    
+    let keycloak_auth = match KeycloakAuth::new(keycloak_config).await {
+        Ok(auth) => {
+            info!("Keycloak authentication initialized successfully");
+            Arc::new(auth)
+        },
+        Err(e) => {
+            warn!("Failed to initialize Keycloak authentication: {}", e);
+            warn!("Starting without authentication. THIS IS NOT SECURE FOR PRODUCTION!");
+            Arc::new(KeycloakAuth::new(KeycloakConfig {
+                server_url: "http://localhost:8080".to_string(),
+                realm: "muxly".to_string(),
+                client_id: "muxly-api".to_string(),
+                client_secret: "secret".to_string(),
+                required_role: None,
+            }).await?)
+        }
+    };
+    
+    let auth_state = AuthState {
+        keycloak: keycloak_auth.clone(),
+    };
+
     // Initialize scheduler
     let scheduler_config = SchedulerConfig {
         api: ApiSchedulerConfig {
@@ -91,7 +138,7 @@ async fn main() -> Result<()> {
     let scheduler_integration = Arc::new(SchedulerIntegration::new(scheduler_config));
     
     // Start the scheduler
-    scheduler_integration.start().await?;
+    scheduler_integration.start().await.map_err(|e| MuxlyError::Scheduler(e.to_string()))?;
     info!("Schedulers started");
 
     // Register an example API job
@@ -109,7 +156,7 @@ async fn main() -> Result<()> {
             }))
         }),
         true,
-    ).await?;
+    ).await.map_err(|e| MuxlyError::Scheduler(e.to_string()))?;
     
     info!("Registered API job with ID: {}", job_id);
 
@@ -125,34 +172,52 @@ async fn main() -> Result<()> {
         cron_handler,
         true,  // enabled
         false, // catch up
-    ).await?;
+    ).await.map_err(|e| MuxlyError::Scheduler(e.to_string()))?;
     
     info!("Registered cron job");
+
+    // Setup CORS
+    let cors = CorsLayer::new()
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+        .allow_headers(Any)
+        .allow_origin(Any);
 
     // Build application with routes
     let app = Router::new()
         .route("/", get(hello_world))
-        .merge(scheduler_integration.routes());
+        .merge(api::api_router())
+        .merge(scheduler_integration.routes())
+        .layer(cors)
+        .layer(Extension(db_pool.clone()))
+        .layer(Extension(auth_state));
 
     // Start server
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     info!("Listening on http://{}", addr);
 
-    let server = Server::bind(&addr)
-        .serve(app.into_make_service());
-
+    // Build the server
+    let listener = tokio::net::TcpListener::bind(addr).await?;
     info!("Server started successfully!");
     
-    // Handle graceful shutdown
-    let graceful = server.with_graceful_shutdown(shutdown_signal());
-    
-    // Start the server
-    if let Err(e) = graceful.await {
-        eprintln!("Server error: {}", e);
-    }
+    // Start the server with graceful shutdown
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .map_err(|e| MuxlyError::Internal(format!("Server error: {}", e)))?;
 
-    // Stop the scheduler before exiting
-    scheduler_integration.stop().await?;
+    // Cleanup resources
+    info!("Stopping services...");
     
+    // Stop the scheduler
+    if let Err(e) = scheduler_integration.stop().await {
+        error!("Error stopping scheduler: {}", e);
+    }
+    
+    // Shutdown database
+    if let Err(e) = shutdown_database(&db_pool).await {
+        error!("Error closing database connections: {}", e);
+    }
+    
+    info!("All services stopped successfully");
     Ok(())
 }

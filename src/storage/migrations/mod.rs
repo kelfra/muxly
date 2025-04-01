@@ -1,8 +1,9 @@
-use anyhow::{Result, Context};
+use anyhow::Context;
 use sqlx::migrate::MigrateDatabase;
 use crate::storage::database::DatabasePool;
 use std::path::Path;
 use tracing::{info, warn};
+use crate::error::{MuxlyError, Result};
 
 /// Run database migrations
 pub async fn run_migrations(pool: &DatabasePool) -> Result<()> {
@@ -20,10 +21,10 @@ pub async fn run_migrations(pool: &DatabasePool) -> Result<()> {
     // Run migrations using SQLx
     sqlx::migrate::Migrator::new(migration_path)
         .await
-        .context("Failed to create migrator")?
+        .map_err(|e| MuxlyError::Database(e))?
         .run(pool)
         .await
-        .context("Failed to run migrations")?;
+        .map_err(|e| MuxlyError::Database(e))?;
     
     info!("Database migrations completed successfully");
     Ok(())
