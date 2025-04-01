@@ -1,0 +1,148 @@
+# Muxly Default Configuration
+
+# Application settings
+app:
+  name: Muxly
+  host: 127.0.0.1
+  port: 3000
+  log_level: info
+  database_url: sqlite:muxly.db
+  max_connections: 10
+  connection_timeout: 30
+  cors_enabled: false
+  cors_origins: 
+    - http://localhost:3000
+  auth_enabled: false
+
+# Connector settings
+connectors:
+  global:
+    timeout: 30
+    max_retries: 3
+    backoff_strategy: exponential
+    concurrent_syncs: 5
+    check_interval: 300
+
+  # BigQuery connector (disabled by default)
+  bigquery:
+    enabled: false
+    # project_id: your-project-id
+    # service_account_key: /path/to/service-account-key.json
+    max_rows: 10000
+    location: US
+
+  # Google Analytics 4 connector (disabled by default)
+  ga4:
+    enabled: false
+    # property_id: 123456789
+    # service_account_key: /path/to/service-account-key.json
+    # oauth_client_id: your-oauth-client-id
+    # oauth_client_secret: your-oauth-client-secret
+    # oauth_refresh_token: your-oauth-refresh-token
+    default_date_range: 30
+
+  # HubSpot connector (disabled by default)
+  hubspot:
+    enabled: false
+    # api_key: your-api-key
+    # access_token: your-access-token
+    # refresh_token: your-refresh-token
+    # client_id: your-client-id
+    # client_secret: your-client-secret
+    batch_size: 100
+    enable_webhooks: true
+
+# Router settings
+router:
+  global:
+    enabled: true
+    buffer_size: 1000
+    batch_size: 100
+    flush_interval: 5
+    max_retries: 3
+    enable_transformation: true
+
+  # Prometheus output (disabled by default)
+  prometheus:
+    enabled: false
+    metrics_path: /metrics
+    include_labels: true
+    default_metric_type: gauge
+
+  # Webhook output (disabled by default)
+  webhook:
+    enabled: false
+    # endpoints:
+    #   - url: https://example.com/webhook
+    #     secret: your-webhook-secret
+    #     method: POST
+    #     event_types:
+    #       - data.updated
+    #       - data.created
+    max_concurrency: 10
+    timeout: 30
+
+  # File output (disabled by default)
+  file:
+    enabled: false
+    output_dir: ./output
+    format: json
+    append: true
+    rotation: daily
+    max_file_size: 100
+
+  # S3 output (disabled by default)
+  s3:
+    enabled: false
+    # region: us-west-2
+    # bucket: your-bucket-name
+    prefix: muxly/
+    format: json
+    # access_key_id: your-access-key
+    # secret_access_key: your-secret-key
+    use_instance_profile: false
+
+  # Database output (disabled by default)
+  database:
+    enabled: false
+    # connection_url: postgres://user:pass@localhost:5432/db
+    db_type: postgres
+    # table: metrics
+    # schema: public
+    create_table: false
+    batch_size: 100
+
+  # Slack notifications (disabled by default)
+  slack:
+    enabled: false
+    # webhook_url: https://hooks.slack.com/services/XXX/YYY/ZZZ
+    # channel: #metrics
+    username: Muxly Bot
+    icon: ":chart_with_upwards_trend:"
+    # event_types:
+    #   - error
+    #   - sync.completed
+    #   - sync.failed
+
+# Scheduler settings
+scheduler:
+  # API scheduler configuration
+  api:
+    enabled: true
+    max_concurrent_jobs: 10
+    job_timeout: 300
+    max_history_size: 100
+
+  # Cron scheduler configuration
+  cron:
+    enabled: true
+    catch_up: false
+    # cron_expression: "0 0 * * * *"  # Every hour
+    # timezone: UTC
+
+  # Webhook scheduler configuration
+  webhook:
+    enabled: true
+    # secret: your-webhook-secret
+    max_payload_size: 1048576  # 1 MB
+    validate_signatures: true 
