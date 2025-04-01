@@ -206,6 +206,28 @@ Muxly provides integration with several data sources:
 - Data transformation to consistent JSON format
 - Customizable data fetching options
 
+### Router Module
+
+Muxly includes a powerful routing system that sends data from connectors to various destinations:
+
+#### Supported Destinations
+
+- **Database**: Store data in SQL databases (PostgreSQL, MySQL, SQLite)
+- **Email**: Send email notifications with data summaries and alerts
+- **File**: Write data to local files in various formats (JSON, CSV, Parquet)
+- **Prometheus**: Publish metrics to Prometheus monitoring system
+- **S3**: Store data in Amazon S3 and compatible cloud storage
+- **Slack**: Send notifications to Slack channels
+- **Webhook**: Send data to HTTP endpoints
+
+#### Features
+
+- Flexible configuration for each destination type
+- Support for both individual and batch data processing
+- Templating for customized output formats
+- Error handling and connection verification
+- Conditional routing based on data content (coming soon)
+
 ## Documentation
 
 ### User Documentation
@@ -217,6 +239,7 @@ For users of Muxly, the following guides are available:
 - [**Connectors Guide**](docs/user-guide/connectors.md) - Working with data source connectors
 - [**Scheduler Guide**](docs/user-guide/scheduler.md) - Automating data tasks
 - [**Router Guide**](docs/user-guide/router.md) - Defining data routes
+- [**Destinations Guide**](docs/user-guide/destinations.md) - Configuring data destinations
 
 ### Developer Documentation
 
