@@ -74,6 +74,9 @@ oauth2 = "4.4.2"     # For OAuth authentication
 bytes = "1.4.0"      # For working with binary data
 log = "0.4.20"       # Logging facade
 
+# Router dependencies
+jsonpath-lib = "0.3.0"  # For JSON path expressions in routing conditions
+
 [dev-dependencies]
 mockito = "1.2.0"
 temp-env = "0.3.6"
