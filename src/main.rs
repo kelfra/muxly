@@ -1,60 +1,116 @@
-use std::net::SocketAddr;
+mod api;
+mod auth;
+mod collector;
+mod config;
+mod scheduler;
+mod storage;
+mod transform;
 
 use anyhow::Result;
 use axum::{
     routing::get,
     Router,
 };
-use tracing::info;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use std::sync::Arc;
+use std::net::SocketAddr;
+use tracing::{info, Level};
+use tracing_subscriber::FmtSubscriber;
 
-mod api;
-mod auth;
-mod collector;
-mod connectors;
-mod config;
-mod diagnostics;
-mod router;
-mod scheduler;
-mod storage;
-mod transform;
+use scheduler::{SchedulerConfig, SchedulerIntegration, ApiSchedulerConfig, CronConfig, WebhookConfig};
+
+async fn hello_world() -> &'static str {
+    "Hello, Muxly!"
+}
+
+async fn health_check() -> &'static str {
+    "OK"
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize tracing
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "muxly=info,tower_http=debug".into()),
-        ))
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    let subscriber = tracing_subscriber::FmtSubscriber::builder()
+        .with_max_level(tracing::Level::INFO)
+        .finish();
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("Setting default subscriber failed");
 
     info!("Starting Muxly service");
 
-    // Load configuration
-    // config::load_config()?;
+    // Initialize scheduler
+    let scheduler_config = SchedulerConfig {
+        api: ApiSchedulerConfig {
+            enabled: true,
+        },
+        cron: CronConfig {
+            enabled: true,
+            catch_up: false,
+            cron_expression: None,
+            timezone: None,
+        },
+        webhook: WebhookConfig {
+            enabled: true,
+            secret: Some("test-webhook-secret".to_string()),
+        },
+    };
 
-    // Initialize database
-    // storage::init_database().await?;
+    let scheduler_integration = Arc::new(SchedulerIntegration::new(scheduler_config));
+    
+    // Start the scheduler
+    scheduler_integration.start().await?;
+    info!("Schedulers started");
 
-    // Create application router
+    // Register an example API job
+    let api_scheduler = scheduler_integration.api_scheduler.clone();
+    let job_id = api_scheduler.register_job(
+        "example-job",
+        Some("An example job that returns a greeting".to_string()),
+        Arc::new(|params| {
+            let name = params.get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("World");
+            
+            Ok(serde_json::json!({
+                "greeting": format!("Hello, {}!", name)
+            }))
+        }),
+        true,
+    ).await?;
+    
+    info!("Registered API job with ID: {}", job_id);
+
+    // Register an example cron job
+    let cron_scheduler = scheduler_integration.cron_scheduler.clone();
+    let cron_handler = Arc::new(|| {
+        info!("Cron job executed!");
+        Box::pin(async { Ok(()) })
+    });
+    
+    cron_scheduler.add_job(
+        "example-cron",
+        "*/5 * * * * *", // Every 5 seconds
+        cron_handler,
+        true, // enabled
+        false, // catch_up
+    ).await?;
+    
+    info!("Registered cron job");
+
+    // Build application with routes
     let app = Router::new()
-        .route("/", get(health_check))
-        .route("/health", get(health_check));
-        // Add more routes as they're implemented
+        .route("/", get(hello_world))
+        .merge(scheduler_integration.routes());
 
-    // Start the server
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    // Start server
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     info!("Listening on {}", addr);
+    
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
-        .await
-        .unwrap();
+        .await?;
 
+    // Stop the scheduler before exiting
+    scheduler_integration.stop().await?;
+    
     Ok(())
-}
-
-// Simple health check handler
-async fn health_check() -> &'static str {
-    "Muxly Service is running"
 }
