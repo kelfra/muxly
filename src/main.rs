@@ -43,13 +43,14 @@ async fn main() -> Result<()> {
             enabled: true,
         },
         cron: CronConfig {
-            default_enabled: true,
-            default_catch_up: false,
+            enabled: true,
+            catch_up: false,
+            cron_expression: None,
+            timezone: None,
         },
         webhook: WebhookConfig {
             enabled: true,
-            path: "/webhook".to_string(),
-            secret: Some("muxly-webhook-secret".to_string()),
+            secret: Some("test-webhook-secret".to_string()),
         },
     };
 
@@ -80,13 +81,17 @@ async fn main() -> Result<()> {
 
     // Register an example cron job
     let cron_scheduler = scheduler_integration.cron_scheduler.clone();
+    let cron_handler = Arc::new(|| {
+        info!("Cron job executed!");
+        Box::pin(async { Ok(()) })
+    });
+    
     cron_scheduler.add_job(
         "example-cron",
         "*/5 * * * * *", // Every 5 seconds
-        Box::new(|| {
-            info!("Cron job executed!");
-            Box::pin(async { Ok(()) })
-        }),
+        cron_handler,
+        true, // enabled
+        false, // catch_up
     ).await?;
     
     info!("Registered cron job");

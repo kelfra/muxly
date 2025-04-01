@@ -25,8 +25,8 @@ pub struct WebhookConfig {
 /// Webhook handler function
 pub type WebhookHandler = Arc<dyn Fn(serde_json::Value) -> Result<serde_json::Value> + Send + Sync>;
 
-/// Registered webhook
-struct RegisteredWebhook {
+/// A registered webhook in the scheduler
+pub struct RegisteredWebhook {
     /// Webhook ID
     id: String,
     /// Webhook path
@@ -66,10 +66,12 @@ pub struct WebhookScheduler {
 }
 
 impl WebhookScheduler {
-    /// Create a new webhook scheduler
-    pub fn new() -> Self {
+    /// Create a new webhook scheduler with default configuration
+    pub fn new(config: WebhookConfig) -> Self {
         Self {
+            config,
             webhooks: RwLock::new(HashMap::new()),
+            signatures: RwLock::new(HashMap::new()),
         }
     }
     

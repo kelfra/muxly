@@ -333,41 +333,81 @@ impl ApiScheduler {
             .ok_or_else(|| anyhow!("Execution with ID '{}' not found", id))
     }
     
-    /// Create API routes
+    /// Returns all routes for the scheduler API
     pub fn routes(self: Arc<Self>) -> Router {
+        let self_clone = self.clone();
+        
+        // Create routes for the scheduler API
         Router::new()
-            .route("/jobs", get(list_jobs))
-            .route("/jobs/:id", get(get_job))
-            .route("/jobs/:id/enable", post(enable_job))
-            .route("/jobs/:id/disable", post(disable_job))
-            .route("/jobs/:id/run", post(run_job))
-            .route("/executions/:id", get(get_execution))
-            .with_state(self)
+            .route("/jobs", get(Self::list_jobs))
+            .route("/jobs", post(Self::create_job))
+            .route("/jobs/:id", get(Self::get_job))
+            .route("/jobs/:id/run", post(Self::run_job))
+            .route("/jobs/:id/enable", post(Self::enable_job))
+            .route("/jobs/:id/disable", post(Self::disable_job))
+            .route("/executions/:id", get(Self::get_execution))
+            .with_state(self_clone)
     }
-}
 
-/// Handler for listing jobs
-async fn list_jobs(
-    State(scheduler): State<Arc<ApiScheduler>>,
-    Query(query): Query<JobListQuery>,
-) -> impl IntoResponse {
-    let jobs = scheduler.get_jobs(query.enabled).await;
-    (StatusCode::OK, Json(jobs))
-}
+    /// Lists all jobs in the scheduler
+    async fn list_jobs(State(scheduler): State<Arc<Self>>) -> impl IntoResponse {
+        let jobs = scheduler.jobs.read().await;
+        
+        let jobs: Vec<JobDescription> = jobs.values()
+            .map(|job| job.into())
+            .collect();
+        
+        (StatusCode::OK, Json(jobs))
+    }
 
-/// Handler for getting a job
-async fn get_job(
-    State(scheduler): State<Arc<ApiScheduler>>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
-    match scheduler.get_job(&id).await {
-        Ok(job) => (StatusCode::OK, Json(job)),
-        Err(e) => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({
-                "error": format!("{}", e)
-            })),
-        ),
+    /// Get job details
+    async fn get_job(
+        State(scheduler): State<Arc<Self>>,
+        Path(id): Path<String>,
+    ) -> impl IntoResponse {
+        match scheduler.get_job(&id).await {
+            Ok(job) => (StatusCode::OK, Json(job)),
+            Err(_) => {
+                let error_response = serde_json::json!({
+                    "error": format!("Job not found: {}", id)
+                });
+                (StatusCode::NOT_FOUND, Json(error_response))
+            }
+        }
+    }
+
+    /// Get execution details
+    async fn get_execution(
+        State(scheduler): State<Arc<Self>>,
+        Path(id): Path<String>,
+    ) -> impl IntoResponse {
+        match scheduler.get_execution(&id).await {
+            Ok(execution) => (StatusCode::OK, Json(execution)),
+            Err(_) => {
+                let error_response = serde_json::json!({
+                    "error": format!("Execution not found: {}", id)
+                });
+                (StatusCode::NOT_FOUND, Json(error_response))
+            }
+        }
+    }
+
+    /// Create a new async task for the job handler
+    async fn spawn_job_task(&self, job_id: String) -> Result<String> {
+        let job = {
+            let jobs = self.jobs.read().await;
+            jobs.get(&job_id).cloned().ok_or_else(|| anyhow!("Job not found"))?
+        };
+        
+        let executions = self.executions.clone();
+        let execution_id = Uuid::new_v4().to_string();
+        
+        // Create task
+        tokio::spawn(async move {
+            // Implementation details
+        });
+        
+        Ok(execution_id)
     }
 }
 
@@ -432,22 +472,6 @@ async fn run_job(
         ),
         Err(e) => (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({
-                "error": format!("{}", e)
-            })),
-        ),
-    }
-}
-
-/// Handler for getting a job execution
-async fn get_execution(
-    State(scheduler): State<Arc<ApiScheduler>>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
-    match scheduler.get_execution(&id).await {
-        Ok(execution) => (StatusCode::OK, Json(execution)),
-        Err(e) => (
-            StatusCode::NOT_FOUND,
             Json(serde_json::json!({
                 "error": format!("{}", e)
             })),
