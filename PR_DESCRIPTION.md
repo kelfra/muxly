@@ -1,49 +1,65 @@
-# Feature: Scheduler and Configuration Modules Implementation
+# Feature: Connectors Module Implementation
 
 ## Overview
-This PR implements two core components of the Muxly system:
-1. **Scheduler Module**: A robust scheduling system with cron, webhook, and API-based job scheduling
-2. **Configuration Module**: A flexible configuration system with validation, schema, and multi-format support
+This PR implements the Connectors Module, a key component of the Muxly system that enables integration with various third-party data sources. This implementation completes Phase 2 of our project roadmap.
 
 ## Changes
-- Added comprehensive scheduler implementation with three scheduling mechanisms
-- Created configuration loading, validation, and schema support
-- Added configuration models for all system components
-- Created default and development configuration files
-- Updated main application to integrate with the scheduler
-- Updated project dependencies in Cargo.toml
-- Added implementation plan and progress documentation
+- Added comprehensive connector infrastructure with common traits and interfaces
+- Implemented three connector types:
+  - BigQuery connector for Google BigQuery integration
+  - GA4 connector for Google Analytics 4 metrics
+  - HubSpot connector for CRM data
+- Created a plugin system for custom connector extensions
+- Updated project documentation to reflect implementation progress
 
 ## Technical Details
 
-### Scheduler Module
-- Implemented cron-based scheduling with timezone support
-- Added webhook triggers with signature validation
-- Created RESTful API for job management
-- Integrated all three scheduling methods into a unified system
+### Base Connector Infrastructure
+- Defined a `Connector` trait with standard interface for all data sources
+- Implemented authentication handling for various auth methods
+- Created common error handling and rate limiting mechanisms
+- Added connection testing and validation capabilities
 
-### Configuration Module
-- Added support for YAML, JSON, and TOML configuration files
-- Implemented environment variable overrides
-- Created validation system with detailed error reporting
-- Added JSON Schema for documentation and validation
-- Implemented strongly typed configuration models for all components
+### BigQuery Connector
+- Implemented Google Cloud authentication (OAuth and service accounts)
+- Added SQL query execution with parameter support
+- Implemented data transformation for query results
+- Added metadata retrieval for datasets and tables
+
+### GA4 Connector
+- Implemented OAuth authentication flow with token refresh
+- Added report generation with dimensions and metrics
+- Created data transformation for GA4's complex response format
+- Implemented rate limiting and retry mechanisms
+
+### HubSpot Connector
+- Implemented OAuth and API key authentication
+- Added support for contacts, companies, deals, and other CRM objects
+- Implemented association management between objects
+- Created data transformation for HubSpot's API responses
+
+### Plugin System
+- Implemented dynamic loading of custom connectors using `libloading`
+- Created a stable plugin API for third-party developers
+- Added type-safe interfaces for plugin registration
+- Implemented example plugin to demonstrate the API
 
 ## Testing
-- Unit tests for both modules
-- Integration tests for scheduler API endpoints
-- Configuration validation tests
+- Thorough unit tests for all connector implementations
+- Authentication and error handling test cases
+- Data transformation validation tests
+- Plugin system validation tests
+
+## Dependencies
+- Added `gcp_auth` for Google Cloud authentication
+- Added `libloading` for the plugin system
+- Added `oauth2` for OAuth authentication flows
+- Added other supporting libraries for HTTP requests and JSON processing
 
 ## Documentation
-- Updated implementation plan
-- Added progress summary
+- Updated the project status document to reflect completion of this phase
 - Added inline documentation for all public APIs
-
-## Known Issues
-- There are compile errors in several modules that reference API routes and handlers not yet implemented
-- Some middleware implementations need updating to match the latest Axum version
-- The main application has references to components that will be implemented in future PRs
-- These issues will be addressed in subsequent PRs as we implement the remaining modules
+- Created configuration templates for all connector types
 
 ## Next Steps
-The next phase will focus on implementing the Connectors Module for data source integration. 
+The next phase (Phase 3) will focus on implementing the Router Module to handle data destination routing. 

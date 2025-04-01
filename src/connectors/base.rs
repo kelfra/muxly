@@ -112,10 +112,22 @@ pub trait Connector {
 /// Helper function to create a new connector instance based on connector type
 pub fn create_connector(connector_type: &str) -> Result<Box<dyn Connector>> {
     match connector_type {
-        "bigquery" => todo!("Implement BigQuery connector"),
-        "ga4" => todo!("Implement GA4 connector"),
-        "hubspot" => todo!("Implement HubSpot connector"), 
-        "internal_api" => todo!("Implement Internal API connector"),
+        "bigquery" => {
+            let connector = crate::connectors::bigquery::BigQueryConnector::new();
+            Ok(Box::new(connector))
+        },
+        "ga4" => {
+            let connector = crate::connectors::ga4::GA4Connector::new();
+            Ok(Box::new(connector))
+        },
+        "hubspot" => {
+            let connector = crate::connectors::hubspot::HubSpotConnector::new();
+            Ok(Box::new(connector))
+        },
+        "plugin" => {
+            let connector = crate::connectors::plugin::PluginConnector::new();
+            Ok(Box::new(connector))
+        },
         _ => Err(anyhow::anyhow!("Unsupported connector type: {}", connector_type)),
     }
 }
