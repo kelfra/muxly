@@ -153,17 +153,13 @@ fn validate_connectors_config(config: &super::models::connectors::ConnectorsConf
     for (name, connector) in &config.custom {
         if connector.enabled {
             match connector.connector_type.to_lowercase().as_str() {
-                "api" | "database" | "file" => {}
+                "database" | "file" => {}
                 _ => {
                     return Err(anyhow::anyhow!(
-                        "Invalid connector type for custom connector '{}': {}. Expected 'api', 'database', or 'file'",
+                        "Invalid connector type for custom connector '{}': {}. Expected 'database', or 'file'",
                         name, connector.connector_type
                     ));
                 }
-            }
-            
-            if connector.connector_type == "api" && connector.api_url.is_none() {
-                return Err(anyhow::anyhow!("API URL must be specified for API-type custom connector '{}'", name));
             }
             
             if connector.plugin_path.is_some() {

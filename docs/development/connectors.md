@@ -150,7 +150,6 @@ Planned enhancements for the Connectors Module:
    - Salesforce
    - Stripe
    - Postgres/MySQL direct connections
-   - REST API generic connector
 
 2. Performance improvements:
    - Connection pooling

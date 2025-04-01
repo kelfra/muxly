@@ -275,15 +275,11 @@ pub static CONNECTORS_SCHEMA: Lazy<Value> = Lazy::new(|| {
                         "connector_type": {
                             "type": "string",
                             "description": "Type of connector",
-                            "enum": ["api", "database", "file"]
+                            "enum": ["database", "file"]
                         },
                         "plugin_path": {
                             "type": ["string", "null"],
                             "description": "Path to the connector plugin file"
-                        },
-                        "api_url": {
-                            "type": ["string", "null"],
-                            "description": "API base URL for API-type connectors"
                         },
                         "auth_type": {
                             "type": "string",

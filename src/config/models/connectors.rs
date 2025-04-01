@@ -218,16 +218,12 @@ pub struct CustomConnectorConfig {
     #[serde(default = "default_enabled")]
     pub enabled: bool,
     
-    /// Connector type (api, database, file)
+    /// Connector type (database, file)
     pub connector_type: String,
     
     /// Plugin file path
     #[serde(default)]
     pub plugin_path: Option<String>,
-    
-    /// API base URL for API-type connectors
-    #[serde(default)]
-    pub api_url: Option<String>,
     
     /// Authentication type (none, basic, bearer, apikey, oauth)
     #[serde(default = "default_auth_type")]
