@@ -9,9 +9,10 @@ A lightweight, cross-platform service written in Rust that enables SaaS companie
 - **Scheduler Module**: Unified scheduling system with cron, webhook, and API-based triggers
 - **Connectors Module**: Implementations for BigQuery, GA4, HubSpot, plus a plugin system
 - **Router Module Destinations**: Multiple destination types including Database, Email, File, Prometheus, S3, Slack, and Webhook
+- **Router Module Rules**: Conditional routing and transformations based on data content
 
 🚧 **In Progress**:
-- **Router Module Rules**: Conditional routing and transformation pipelines (Coming in next release)
+- **Database Migrations**: Schema migrations for persistent storage (Coming in next release)
 
 ## Features
 
@@ -21,6 +22,7 @@ A lightweight, cross-platform service written in Rust that enables SaaS companie
 - **Transform** all data into consistent JSON format
 - **Schedule** data syncs using cron, webhooks, or manual API triggers
 - **Route** data to various destinations (Databases, Email, Files, Prometheus, S3, Slack, Webhooks)
+- **Filter** data with conditional routing based on content
 
 ### Design Principles
 - **Zero-Friction Integration**: Simple setup with minimal configuration requirements
@@ -226,7 +228,9 @@ Muxly includes a powerful routing system that sends data from connectors to vari
 - Support for both individual and batch data processing
 - Templating for customized output formats
 - Error handling and connection verification
-- Conditional routing based on data content (coming soon)
+- Conditional routing based on data content
+- Data transformations before sending
+- JSONPath support for complex conditions
 
 ## Documentation
 

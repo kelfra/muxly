@@ -112,7 +112,23 @@ Each destination includes:
 - Support for both individual and batch data sending
 - Templating capabilities for customized output formats
 
-#### 5. Documentation
+#### 5. Router Module Rules
+We have implemented routing rules and conditions that allow for dynamic routing of data:
+
+- **Condition Evaluation**: Support for complex conditions using JSONPath
+- **Rule Prioritization**: Rules are evaluated in priority order
+- **Transformation Pipeline**: Data transformations before sending to destinations
+- **Dynamic Destination Selection**: Routing to specific destinations based on data content
+- **Error Handling**: Configurable error handling strategies for rules
+
+The implemented transformations include:
+- Field renaming and removal
+- Filtering based on conditions
+- Formula-based calculations
+- String formatting with template variables
+- Array flattening for complex data
+
+#### 6. Documentation
 We have created comprehensive documentation for both developers and users:
 
 - **Developer Documentation**:
@@ -125,17 +141,18 @@ We have created comprehensive documentation for both developers and users:
   - Connectors usage and authentication
   - Scheduler configuration and job setup
   - Router configuration and destinations
+  - Router rules and conditions
   - Troubleshooting guides
 
 ### In Progress Components
 
-#### 1. Router Module Routing Logic
-We are currently working on the routing logic for the Router module:
+#### 1. Database Migrations
+We are preparing database schema migrations for persistent storage of:
 
-- Conditional routing based on data content
-- Dynamic destination selection
-- Error handling and retry mechanisms
-- Transformation pipelines for data processing
+- Configuration data
+- Connector definitions
+- Job schedules and history
+- User authentication and authorization
 
 ### Planned Components
 
@@ -171,7 +188,7 @@ The remaining components of the router module will handle:
 - ✅ Plugin system for custom connectors
 - ✅ Documentation for developers and users
 
-### Phase 3: Router (2-3 weeks) - In Progress
+### Phase 3: Router (2-3 weeks) - Completed
 - ✅ Router trait and base
 - ✅ Output destinations
   - ✅ Database destination
@@ -181,21 +198,19 @@ The remaining components of the router module will handle:
   - ✅ S3 storage destination
   - ✅ Slack notification destination
   - ✅ Webhook destination
-- 🔄 Routing rules and conditions (In Progress)
+- ✅ Routing rules and conditions
 
-### Phase 4: Documentation & Deployment (1-2 weeks)
+### Phase 4: Documentation & Deployment (1-2 weeks) - Next Phase
 - System documentation
 - API documentation
 - Deployment scripts
+- Database migrations
 
 ## Next Steps
 
-The next phase will focus on implementing the Router Module for data destination handling, with the following key tasks:
+The next phase will focus on implementing database migrations for persistent storage:
 
-1. Define the Router trait in base.rs
-2. Implement the Prometheus output for metrics
-3. Create the Webhook output for HTTP endpoints
-4. Develop the File output for local storage
-5. Build the S3 output for cloud storage
-6. Implement the Database output for SQL persistence
-7. Add Slack notifications for alerting 
+1. Set up a migration framework
+2. Create schema for storing configuration
+3. Implement tables for connectors and router configuration
+4. Add tables for job scheduling and history 

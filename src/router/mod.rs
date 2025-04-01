@@ -1,5 +1,6 @@
 mod destinations;
 mod destination_factory;
+mod route;
 mod router_factory;
 mod routing;
 
@@ -156,6 +157,9 @@ pub use destination_factory::DestinationFactory;
 
 // Re-export router factory
 pub use router_factory::RouterFactory;
+
+// Re-export route functionality
+pub use route::Route;
 
 // Re-export routing functionality
 pub use routing::*; 
