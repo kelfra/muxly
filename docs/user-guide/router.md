@@ -37,6 +37,11 @@ router:
             headers:
               Authorization: "Bearer ${ENV_SECRET_KEY}"
               Content-Type: "application/json"
+        - destination_type: "slack"
+          config:
+            webhook_url: "https://hooks.slack.com/services/XXX/YYY/ZZZ"
+            channel: "#data-notifications"
+            message_template: "New sales data received: {{count}} records"
 ```
 
 ## Route Configuration
@@ -213,29 +218,111 @@ params:
 
 ### Destination Configuration
 
-Destinations define where the processed data should be sent:
+Destinations define where the processed data should be sent. Muxly supports multiple destination types to handle different use cases.
 
-```yaml
-destinations:
-  - destination_type: "webhook"
-    config:
-      url: "https://api.example.com/webhook"
-      headers:
-        Authorization: "Bearer ${ENV_SECRET_KEY}"
-        Content-Type: "application/json"
-  - destination_type: "database"
-    config:
-      type: "postgres"
-      connection_string: "${DATABASE_URL}"
-      table: "marketing_data"
-      upsert_key: "id"
-```
+> **Note**: For detailed configuration options for each destination type, see the [Destinations Guide](destinations.md).
 
 #### Available Destination Types
 
-##### Webhook
+##### Database Destination
 
-Sends data to an HTTP endpoint:
+Stores data in relational databases:
+
+```yaml
+destination_type: "database"
+config:
+  db_type: "postgres"  # postgres, mysql, sqlite
+  connection_string: "${DATABASE_URL}"
+  table: "marketing_data"
+  schema: "public"  # For PostgreSQL
+  upsert_key: "id"
+  batch_size: 100
+  create_table: true  # Create table if it doesn't exist
+```
+
+##### Email Destination
+
+Sends email notifications:
+
+```yaml
+destination_type: "email"
+config:
+  smtp_host: "smtp.example.com"
+  smtp_port: 587
+  smtp_username: "${SMTP_USERNAME}"
+  smtp_password: "${SMTP_PASSWORD}"
+  use_tls: true
+  from_email: "notifications@example.com"
+  to_emails:
+    - "recipient@example.com"
+  subject_template: "New data from {{connector_id}}"
+```
+
+##### File Destination
+
+Writes data to local files:
+
+```yaml
+destination_type: "file"
+config:
+  output_dir: "/path/to/output"
+  file_prefix: "data_"
+  file_format: "json"  # json, csv, parquet
+  max_file_size_mb: 10
+  rotation: "daily"  # none, daily, hourly, size
+```
+
+##### Prometheus Destination
+
+Publishes metrics to Prometheus:
+
+```yaml
+destination_type: "prometheus"
+config:
+  metrics:
+    - name: "data_value"
+      type: "gauge"
+      description: "Value from data"
+      value_field: "value"
+      labels:
+        source: "connector_id"
+```
+
+##### S3 Destination
+
+Stores data in Amazon S3 buckets:
+
+```yaml
+destination_type: "s3"
+config:
+  bucket: "my-data-bucket"
+  key_prefix: "data/"
+  region: "us-west-2"
+  output_format: "json"  # json, csv, parquet
+  key_template: "{{connector_id}}/{{date}}/data.json"
+  credentials:
+    access_key_id: "${AWS_ACCESS_KEY_ID}"
+    secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+```
+
+##### Slack Destination
+
+Sends notifications to Slack channels:
+
+```yaml
+destination_type: "slack"
+config:
+  webhook_url: "https://hooks.slack.com/services/XXX/YYY/ZZZ"
+  channel: "#data-notifications"
+  username: "Muxly Bot"
+  icon: ":chart_with_upwards_trend:"
+  message_template: "New data received from {{connector_id}}"
+  include_data: true
+```
+
+##### Webhook Destination
+
+Sends data to HTTP endpoints:
 
 ```yaml
 destination_type: "webhook"
@@ -248,72 +335,76 @@ config:
   batch_size: 100  # How many records to send in one request
   retry:
     max_attempts: 3
-    initial_backoff_ms: 1000
 ```
 
-##### Database
+## Advanced Features
 
-Writes data to a database:
+### Conditional Routing
+
+You can add conditions to routes to determine when data should be sent:
 
 ```yaml
-destination_type: "database"
-config:
-  type: "postgres"  # postgres, mysql, sqlite
-  connection_string: "${DATABASE_URL}"
-  table: "marketing_data"
-  schema: "public"  # Optional
-  upsert_key: "id"  # Optional, for upsert operations
-  batch_size: 1000  # How many records to insert in one operation
+routes:
+  - id: "high-value-customers"
+    name: "High Value Customers Route"
+    enabled: true
+    source:
+      connector_id: "bigquery-sales"
+      data_spec:
+        query: "SELECT * FROM customers"
+    condition: "total_purchases > 1000 AND last_purchase_date > '2023-01-01'"
+    destinations:
+      - destination_type: "slack"
+        config:
+          webhook_url: "https://hooks.slack.com/services/XXX/YYY/ZZZ"
+          message_template: "High value customer alert: {{customer_name}}"
 ```
 
-##### File
+### Error Handling
 
-Writes data to a file:
+You can specify error handling behavior for routes:
 
 ```yaml
-destination_type: "file"
-config:
-  path: "/exports/data_${TIMESTAMP}.csv"
-  format: "csv"  # csv, json, parquet
-  options:
-    delimiter: ","  # For CSV
-    include_header: true  # For CSV
-    pretty_print: true  # For JSON
+routes:
+  - id: "critical-data-sync"
+    name: "Critical Data Sync"
+    enabled: true
+    source:
+      connector_id: "mysql-main"
+      data_spec:
+        query: "SELECT * FROM critical_data"
+    destinations:
+      - destination_type: "database"
+        config:
+          db_type: "postgres"
+          connection_string: "${DATABASE_URL}"
+          table: "critical_data_backup"
+    error_handling:
+      on_error: "fail"  # Options: continue, fail
+      error_destination:  # Optional, where to send error data
+        destination_type: "slack"
+        config:
+          webhook_url: "https://hooks.slack.com/services/XXX/YYY/ZZZ"
+          channel: "#data-alerts"
+          message_template: "Error in critical data sync: {{error_message}}"
 ```
 
-##### S3
+## Monitoring Routes
 
-Writes data to an AWS S3 bucket:
+You can monitor your routes through the Muxly API:
 
-```yaml
-destination_type: "s3"
-config:
-  bucket: "my-data-bucket"
-  key: "exports/data_${TIMESTAMP}.json"
-  region: "us-west-2"
-  format: "json"  # csv, json, parquet
-  credentials:
-    access_key_id: "${AWS_ACCESS_KEY_ID}"
-    secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+```bash
+# Get all routes
+curl http://localhost:3000/v1/router/routes
+
+# Get a specific route
+curl http://localhost:3000/v1/router/routes/sales-to-marketing
+
+# Get route execution history
+curl http://localhost:3000/v1/router/routes/sales-to-marketing/history
 ```
 
-##### BigQuery
-
-Writes data to Google BigQuery:
-
-```yaml
-destination_type: "bigquery"
-config:
-  project_id: "your-project-id"
-  dataset_id: "your_dataset"
-  table_id: "your_table"
-  auth:
-    auth_type: "service_account"
-    params:
-      service_account_json: "${SERVICE_ACCOUNT_JSON}"
-  write_mode: "append"  # append, overwrite, upsert
-  upsert_key: "id"  # Required for upsert mode
-```
+For more information on the available API endpoints, see the [API Reference](api-reference.md).
 
 ## Using Dynamic Variables
 
@@ -393,57 +484,6 @@ The Muxly web interface provides a dashboard for monitoring routes, including:
 - Data processing statistics
 - Manual run capability
 - Enable/disable functionality
-
-## Advanced Features
-
-### Conditional Processing
-
-You can add conditions to determine whether data should be processed:
-
-```yaml
-routes:
-  - id: "conditional-route"
-    # ... other configuration ...
-    condition:
-      type: "expression"
-      expression: "record.revenue > 1000 && record.country == 'US'"
-```
-
-### Error Handling
-
-Configure how errors should be handled:
-
-```yaml
-routes:
-  - id: "sales-route"
-    # ... other configuration ...
-    error_handling:
-      on_error: "continue"  # continue, fail
-      error_destination:
-        destination_type: "file"
-        config:
-          path: "/exports/errors_${TIMESTAMP}.json"
-          format: "json"
-```
-
-### Data Validation
-
-Add validation rules to ensure data quality:
-
-```yaml
-routes:
-  - id: "validated-route"
-    # ... other configuration ...
-    validation:
-      - field: "email"
-        rule: "email"
-        required: true
-      - field: "revenue"
-        rule: "number"
-        min: 0
-        required: true
-      on_validation_error: "filter"  # filter, fail
-```
 
 ## Best Practices
 

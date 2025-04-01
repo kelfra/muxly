@@ -8,9 +8,10 @@ A lightweight, cross-platform service written in Rust that enables SaaS companie
 - **Configuration Module**: Robust configuration system with multiple formats, validation, and smart defaults
 - **Scheduler Module**: Unified scheduling system with cron, webhook, and API-based triggers
 - **Connectors Module**: Implementations for BigQuery, GA4, HubSpot, plus a plugin system
+- **Router Module Destinations**: Multiple destination types including Database, Email, File, Prometheus, S3, Slack, and Webhook
 
 🚧 **In Progress**:
-- **Router Module**: Data destination routing system (Coming in next release)
+- **Router Module Rules**: Conditional routing and transformation pipelines (Coming in next release)
 
 ## Features
 
@@ -19,7 +20,7 @@ A lightweight, cross-platform service written in Rust that enables SaaS companie
 - **Connect** to third-party services (BigQuery, GA4, HubSpot)
 - **Transform** all data into consistent JSON format
 - **Schedule** data syncs using cron, webhooks, or manual API triggers
-- **Route** data to various destinations (Prometheus, files, webhooks, more coming soon)
+- **Route** data to various destinations (Databases, Email, Files, Prometheus, S3, Slack, Webhooks)
 
 ### Design Principles
 - **Zero-Friction Integration**: Simple setup with minimal configuration requirements

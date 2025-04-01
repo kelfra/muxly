@@ -13,6 +13,7 @@ Welcome to the Muxly User Guide! This documentation will help you understand how
 - [Connectors](./connectors.md) - Working with data source connectors
 - [Scheduler](./scheduler.md) - Automating data tasks
 - [Router](./router.md) - Defining data routes
+- [Destinations](./destinations.md) - Supported data destinations and configuration
 
 ## Tutorials
 
