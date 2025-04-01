@@ -15,6 +15,7 @@ use std::sync::Arc;
 use std::net::SocketAddr;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
+use hyper::server::Server;
 
 use scheduler::{SchedulerConfig, SchedulerIntegration, ApiSchedulerConfig, CronConfig, WebhookConfig};
 
@@ -24,6 +25,33 @@ async fn hello_world() -> &'static str {
 
 async fn health_check() -> &'static str {
     "OK"
+}
+
+// Graceful shutdown handler
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("Failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("Failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    info!("Shutdown signal received, starting graceful shutdown");
 }
 
 #[tokio::main]
@@ -41,16 +69,22 @@ async fn main() -> Result<()> {
     let scheduler_config = SchedulerConfig {
         api: ApiSchedulerConfig {
             enabled: true,
+            max_concurrent_jobs: Some(10),
+            job_timeout_seconds: Some(60),
+            max_history_size: Some(100),
         },
         cron: CronConfig {
             enabled: true,
-            catch_up: false,
-            cron_expression: None,
-            timezone: None,
+            max_concurrent_jobs: Some(5),
+            job_timeout_seconds: Some(300),
+            catch_up: Some(false),
+            cron_expression: "*/5 * * * * *".to_string(), // Every 5 seconds
+            timezone: Some("UTC".to_string()),
         },
         webhook: WebhookConfig {
             enabled: true,
-            secret: Some("test-webhook-secret".to_string()),
+            secret: Some("test-secret".to_string()),
+            path: "/webhooks".to_string(),
         },
     };
 
@@ -83,15 +117,14 @@ async fn main() -> Result<()> {
     let cron_scheduler = scheduler_integration.cron_scheduler.clone();
     let cron_handler = Arc::new(|| {
         info!("Cron job executed!");
-        Box::pin(async { Ok(()) })
+        Ok(()) as Result<(), anyhow::Error>
     });
     
     cron_scheduler.add_job(
-        "example-cron",
         "*/5 * * * * *", // Every 5 seconds
         cron_handler,
-        true, // enabled
-        false, // catch_up
+        true,  // enabled
+        false, // catch up
     ).await?;
     
     info!("Registered cron job");
@@ -103,11 +136,20 @@ async fn main() -> Result<()> {
 
     // Start server
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    info!("Listening on {}", addr);
+    info!("Listening on http://{}", addr);
+
+    let server = Server::bind(&addr)
+        .serve(app.into_make_service());
+
+    info!("Server started successfully!");
     
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await?;
+    // Handle graceful shutdown
+    let graceful = server.with_graceful_shutdown(shutdown_signal());
+    
+    // Start the server
+    if let Err(e) = graceful.await {
+        eprintln!("Server error: {}", e);
+    }
 
     // Stop the scheduler before exiting
     scheduler_integration.stop().await?;

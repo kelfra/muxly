@@ -11,15 +11,15 @@ use tokio::sync::RwLock;
 use tracing::{error, info};
 use uuid::Uuid;
 
-/// Webhook configuration
+/// Configuration for webhook triggers
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebhookConfig {
-    /// Webhook path
-    pub path: String,
-    /// Secret for webhook authentication
-    pub secret: Option<String>,
-    /// Whether the webhook is enabled
+    /// Whether the webhook scheduler is enabled
     pub enabled: bool,
+    /// Secret for validating webhook signatures
+    pub secret: Option<String>,
+    /// Base path for webhook endpoints
+    pub path: String,
 }
 
 /// Webhook handler function
@@ -59,10 +59,14 @@ pub struct WebhookRequest {
     pub signature: Option<String>,
 }
 
-/// Webhook scheduler
+/// Webhook scheduler for triggering jobs via HTTP
 pub struct WebhookScheduler {
-    /// Registered webhooks
+    /// Configuration for the webhook scheduler
+    config: WebhookConfig,
+    /// Registered webhook handlers
     webhooks: RwLock<HashMap<String, RegisteredWebhook>>,
+    /// HMAC signatures for webhooks
+    signatures: RwLock<HashMap<String, String>>,
 }
 
 impl WebhookScheduler {

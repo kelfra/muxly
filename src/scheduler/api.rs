@@ -11,20 +11,30 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{error, info};
+use tracing::{error, info, debug};
 use uuid::Uuid;
+use futures::future::BoxFuture;
+use serde_json::json;
+use serde_json::Value;
 
-/// API scheduler configuration
+/// Configuration for the API scheduler
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiSchedulerConfig {
-    /// Whether the API scheduler is enabled
+    /// Whether the scheduler is enabled
     pub enabled: bool,
+    /// Maximum number of concurrent jobs
+    pub max_concurrent_jobs: Option<usize>,
+    /// Job timeout in seconds
+    pub job_timeout_seconds: Option<u64>,
+    /// Maximum size of job execution history
+    pub max_history_size: Option<usize>,
 }
 
 /// Job handler type
 pub type JobHandler = Arc<dyn Fn(serde_json::Value) -> Result<serde_json::Value> + Send + Sync>;
 
-/// Registered job
+/// A job registered in the API scheduler
+#[derive(Clone)]
 struct RegisteredJob {
     /// Job ID
     id: String,
@@ -38,6 +48,10 @@ struct RegisteredJob {
     enabled: bool,
     /// Last execution
     last_execution: Option<JobExecution>,
+    /// Created at
+    created_at: DateTime<Utc>,
+    /// Updated at
+    updated_at: DateTime<Utc>,
 }
 
 /// Job execution
@@ -128,9 +142,9 @@ impl ApiScheduler {
     /// Create a new API scheduler
     pub fn new(config: ApiSchedulerConfig) -> Self {
         Self {
+            config,
             jobs: RwLock::new(HashMap::new()),
             executions: RwLock::new(HashMap::new()),
-            config,
         }
     }
     
@@ -158,6 +172,8 @@ impl ApiScheduler {
             handler,
             enabled,
             last_execution: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
         };
         
         // Add to jobs
@@ -232,95 +248,97 @@ impl ApiScheduler {
         jobs.get_mut(id)
             .map(|job| {
                 job.enabled = enabled;
+                job.updated_at = Utc::now();
                 Ok(())
             })
             .unwrap_or_else(|| Err(anyhow!("Job with ID '{}' not found", id)))
     }
     
-    /// Run a job
-    pub async fn run_job(
-        &self,
-        id: &str,
-        parameters: Option<serde_json::Value>,
-    ) -> Result<String> {
-        // Skip if scheduler is disabled
-        if !self.config.enabled {
-            return Err(anyhow!("API scheduler is disabled"));
-        }
+    /// Run a job with the given parameters
+    pub async fn run_job(&self, job_id: String, parameters: Option<Value>) -> Result<()> {
+        debug!("Running job {}", job_id);
         
-        // Find the job
-        let handler = {
-            let jobs = self.jobs.read().await;
-            let job = jobs
-                .get(id)
-                .ok_or_else(|| anyhow!("Job with ID '{}' not found", id))?;
-            
-            if !job.enabled {
-                return Err(anyhow!("Job is disabled"));
-            }
-            
-            job.handler.clone()
-        };
-        
-        // Create execution
+        // Create the execution record
         let execution_id = Uuid::new_v4().to_string();
-        let now = Utc::now();
+        let execution_start = Utc::now();
         
-        let mut execution = JobExecution {
+        let execution = JobExecution {
             id: execution_id.clone(),
-            job_id: id.to_string(),
-            start_time: now,
-            end_time: None,
-            status: JobStatus::Running,
+            job_id: job_id.clone(),
+            status: "Pending".to_string(),
             parameters: parameters.clone(),
+            start_time: execution_start,
+            end_time: None,
             result: None,
             error: None,
         };
         
-        // Store execution
-        {
-            let mut executions = self.executions.write().await;
-            executions.insert(execution_id.clone(), execution.clone());
-        }
+        // Store the execution
+        self.create_execution(job_id.clone(), execution).await?;
         
-        // Run the job in a new task
-        let executions = self.executions.clone();
-        let jobs = self.jobs.clone();
+        // Clone self into an Arc to be moved into the task
+        let self_arc = Arc::new(self.clone());
+        let job_id_clone = job_id.clone();
+        let execution_id_clone = execution_id.clone();
+        let parameters_clone = parameters.clone();
         
+        // Spawn a task to run the job
         tokio::spawn(async move {
-            let result = handler(parameters.unwrap_or(serde_json::Value::Null));
-            let now = Utc::now();
-            
-            // Update execution
+            // Update execution status to Running
             {
-                let mut executions_guard = executions.write().await;
-                if let Some(exec) = executions_guard.get_mut(&execution_id) {
-                    exec.end_time = Some(now);
-                    
+                let mut execs = self_arc.executions.write().await;
+                if let Some(exec) = execs.get_mut(&execution_id_clone) {
+                    exec.status = "Running".to_string();
+                }
+            }
+            
+            // Get the job handler and run it
+            let result = {
+                let jobs = self_arc.jobs.read().await;
+                match jobs.get(&job_id_clone) {
+                    Some(job) => {
+                        // Get the handler
+                        let handler = job.handler.clone();
+                        
+                        // Run the handler with the parameters
+                        handler(parameters_clone)
+                    }
+                    None => {
+                        // Job not found
+                        Err(anyhow!("Job not found"))
+                    }
+                }
+            };
+            
+            // Update the execution with the result
+            let execution_end = Utc::now();
+            {
+                let mut execs = self_arc.executions.write().await;
+                if let Some(exec) = execs.get_mut(&execution_id_clone) {
+                    exec.end_time = Some(execution_end);
                     match result {
-                        Ok(result_value) => {
-                            exec.status = JobStatus::Completed;
-                            exec.result = Some(result_value);
+                        Ok(res) => {
+                            exec.status = "Completed".to_string();
+                            exec.result = Some(res);
                         }
                         Err(e) => {
-                            exec.status = JobStatus::Failed;
-                            exec.error = Some(format!("{}", e));
+                            exec.status = "Failed".to_string();
+                            exec.error = Some(e.to_string());
                         }
                     }
                 }
             }
             
-            // Update job's last execution
+            // Update the job's last execution
             {
-                let mut jobs_guard = jobs.write().await;
-                if let Some(job) = jobs_guard.get_mut(id) {
-                    let executions_guard = executions.read().await;
-                    job.last_execution = executions_guard.get(&execution_id).cloned();
+                let mut jobs = self_arc.jobs.write().await;
+                if let Some(job) = jobs.get_mut(&job_id_clone) {
+                    job.last_execution = Some(execution_id_clone);
                 }
             }
         });
         
-        Ok(execution_id)
+        Ok(())
     }
     
     /// Get job execution
@@ -333,81 +351,100 @@ impl ApiScheduler {
             .ok_or_else(|| anyhow!("Execution with ID '{}' not found", id))
     }
     
-    /// Returns all routes for the scheduler API
-    pub fn routes(self: Arc<Self>) -> Router {
-        let self_clone = self.clone();
-        
-        // Create routes for the scheduler API
-        Router::new()
-            .route("/jobs", get(Self::list_jobs))
-            .route("/jobs", post(Self::create_job))
-            .route("/jobs/:id", get(Self::get_job))
-            .route("/jobs/:id/run", post(Self::run_job))
-            .route("/jobs/:id/enable", post(Self::enable_job))
-            .route("/jobs/:id/disable", post(Self::disable_job))
-            .route("/executions/:id", get(Self::get_execution))
-            .with_state(self_clone)
-    }
-
-    /// Lists all jobs in the scheduler
-    async fn list_jobs(State(scheduler): State<Arc<Self>>) -> impl IntoResponse {
-        let jobs = scheduler.jobs.read().await;
-        
-        let jobs: Vec<JobDescription> = jobs.values()
-            .map(|job| job.into())
+    /// List history for a job
+    pub async fn list_execution_history(&self, job_id: &str) -> Result<Vec<String>> {
+        let executions_map = self.executions.read().await;
+        let execution_ids: Vec<String> = executions_map
+            .values()
+            .filter(|e| e.job_id == job_id)
+            .map(|e| e.id.clone())
             .collect();
         
-        (StatusCode::OK, Json(jobs))
+        Ok(execution_ids)
     }
 
-    /// Get job details
-    async fn get_job(
-        State(scheduler): State<Arc<Self>>,
-        Path(id): Path<String>,
-    ) -> impl IntoResponse {
-        match scheduler.get_job(&id).await {
-            Ok(job) => (StatusCode::OK, Json(job)),
-            Err(_) => {
-                let error_response = serde_json::json!({
-                    "error": format!("Job not found: {}", id)
-                });
-                (StatusCode::NOT_FOUND, Json(error_response))
-            }
+    /// Create a new execution record
+    pub async fn create_execution(&self, job_id: String, execution: JobExecution) -> Result<()> {
+        let mut executions = self.executions.write().await;
+        executions.insert(execution.id.clone(), execution);
+        
+        let mut jobs = self.jobs.write().await;
+        if let Some(job) = jobs.get_mut(&job_id) {
+            job.last_execution = Some(execution.clone());
         }
+        
+        Ok(())
     }
 
-    /// Get execution details
-    async fn get_execution(
-        State(scheduler): State<Arc<Self>>,
-        Path(id): Path<String>,
-    ) -> impl IntoResponse {
-        match scheduler.get_execution(&id).await {
-            Ok(execution) => (StatusCode::OK, Json(execution)),
-            Err(_) => {
-                let error_response = serde_json::json!({
-                    "error": format!("Execution not found: {}", id)
-                });
-                (StatusCode::NOT_FOUND, Json(error_response))
-            }
-        }
-    }
-
-    /// Create a new async task for the job handler
-    async fn spawn_job_task(&self, job_id: String) -> Result<String> {
+    /// Cancel and clean up a job and all its executions
+    async fn cancel_job_internal(&self, job_id: &str) -> Result<()> {
+        // Remove the job
         let job = {
-            let jobs = self.jobs.read().await;
-            jobs.get(&job_id).cloned().ok_or_else(|| anyhow!("Job not found"))?
+            let mut jobs = self.jobs.write().await;
+            jobs.remove(job_id).ok_or_else(|| anyhow!("Job not found"))?
         };
         
-        let executions = self.executions.clone();
-        let execution_id = Uuid::new_v4().to_string();
+        // Clean up executions for this job
+        {
+            let mut executions = self.executions.write().await;
+            executions.retain(|_, execution| execution.job_id != job_id);
+        }
         
-        // Create task
-        tokio::spawn(async move {
-            // Implementation details
-        });
-        
-        Ok(execution_id)
+        debug!("Job {} cancelled", job_id);
+        Ok(())
+    }
+    
+    /// Create routes for the API scheduler
+    pub fn routes(self: Arc<Self>) -> Router {
+        Router::new()
+            .route("/jobs", get(list_jobs))
+            .route("/jobs/:id", get(get_job))
+            .route("/executions", get(list_executions))
+            .route("/executions/:id", get(get_execution))
+            .with_state(self)
+    }
+}
+
+/// Standalone handler functions for axum compatibility
+async fn list_jobs(
+    State(scheduler): State<Arc<ApiScheduler>>,
+) -> impl IntoResponse {
+    let jobs = scheduler.get_jobs(None).await;
+    Json(jobs).into_response()
+}
+
+async fn get_job(
+    State(scheduler): State<Arc<ApiScheduler>>, 
+    Path(job_id): Path<String>
+) -> impl IntoResponse {
+    let jobs = scheduler.jobs.read().await;
+    match jobs.get(&job_id) {
+        Some(job) => Json(job).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({"error": format!("Job {} not found", job_id)}))
+        ).into_response()
+    }
+}
+
+async fn list_executions(
+    State(scheduler): State<Arc<ApiScheduler>>,
+) -> impl IntoResponse {
+    let executions = scheduler.list_execution_history("").await;
+    Json(executions).into_response()
+}
+
+async fn get_execution(
+    State(scheduler): State<Arc<ApiScheduler>>,
+    Path(execution_id): Path<String>
+) -> impl IntoResponse {
+    let executions = scheduler.executions.read().await;
+    match executions.get(&execution_id) {
+        Some(execution) => Json(execution).into_response(),
+        None => (
+            StatusCode::NOT_FOUND, 
+            Json(json!({"error": format!("Execution {} not found", execution_id)}))
+        ).into_response()
     }
 }
 
@@ -461,13 +498,12 @@ async fn run_job(
     Path(id): Path<String>,
     Json(request): Json<RunJobRequest>,
 ) -> impl IntoResponse {
-    match scheduler.run_job(&id, request.parameters).await {
-        Ok(execution_id) => (
+    match scheduler.run_job(id, request.parameters).await {
+        Ok(_) => (
             StatusCode::ACCEPTED,
             Json(serde_json::json!({
                 "status": "success",
-                "message": format!("Job {} started", id),
-                "execution_id": execution_id
+                "message": format!("Job {} started", id)
             })),
         ),
         Err(e) => (
@@ -478,3 +514,4 @@ async fn run_job(
         ),
     }
 }
+

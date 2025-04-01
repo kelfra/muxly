@@ -10,17 +10,21 @@ use tokio::time::{sleep, Duration};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-/// Cron scheduler configuration
+/// Configuration for the cron scheduler
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CronConfig {
-    /// Cron expression (e.g. "0 0 * * *" for daily at midnight)
-    pub cron_expression: String,
-    /// Timezone for the cron expression
-    pub timezone: Option<String>,
-    /// Whether the scheduler is enabled
+    /// Whether the cron scheduler is enabled
     pub enabled: bool,
-    /// Catch up missed executions if the service was down
+    /// Maximum number of concurrent jobs
+    pub max_concurrent_jobs: Option<usize>,
+    /// Job timeout in seconds
+    pub job_timeout_seconds: Option<u64>,
+    /// Whether to catch up on missed jobs
     pub catch_up: Option<bool>,
+    /// Default timezone for jobs
+    pub timezone: Option<String>,
+    /// Default cron expression for jobs
+    pub cron_expression: String,
 }
 
 /// Handler for cron job execution

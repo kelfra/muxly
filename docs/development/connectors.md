@@ -1,8 +1,10 @@
-# Changes Summary - Connectors Module Implementation
+# Connectors Module Implementation
 
-## Key Files
+This document provides details about the implementation of the Connectors Module in Muxly.
 
-### Infrastructure Files
+## Key Components
+
+### Infrastructure
 
 1. `src/connectors/mod.rs`
    - Exports all connector modules and public interfaces
@@ -41,22 +43,9 @@
    - Defines a stable API for third-party developers
    - Includes an example plugin implementation
 
-### Configuration & Documentation
+## Core Interfaces
 
-7. `docs/project_status.md`
-   - Updated to reflect the completion of the Connectors Module
-   - Documents progress on project milestones and next steps
-
-8. `Cargo.toml`
-   - Added new dependencies for connector implementations:
-     - `gcp_auth` for Google Cloud authentication
-     - `libloading` for plugin system
-     - `oauth2` for OAuth implementation
-     - Supporting libraries for HTTP and data handling
-
-## Implementation Details
-
-### Connector Interface
+### Connector Trait
 
 All connectors implement the `Connector` trait, which provides a standard interface:
 
@@ -73,18 +62,9 @@ pub trait Connector {
 }
 ```
 
-### Authentication Support
+### ConnectorData Structure
 
-The system supports multiple authentication methods:
-
-- **OAuth**: For GA4 and HubSpot with token refresh
-- **Service Account**: For Google Cloud services
-- **API Key**: For simpler authentication flows
-- **Custom Authentication**: Via plugin extensions
-
-### Data Transformation
-
-Each connector is responsible for transforming source-specific data formats into a standardized `ConnectorData` structure:
+Data returned from connectors is wrapped in a standardized `ConnectorData` structure:
 
 ```rust
 pub struct ConnectorData {
@@ -95,17 +75,89 @@ pub struct ConnectorData {
 }
 ```
 
-### Plugin System
+### Authentication
+
+The system supports multiple authentication methods through the `AuthSettings` structure:
+
+```rust
+pub struct AuthSettings {
+    pub auth_type: String,
+    pub params: HashMap<String, Value>,
+}
+```
+
+Supported authentication types include:
+- OAuth (for GA4 and HubSpot)
+- Service Account (for Google Cloud services)
+- API Key (for simpler authentication flows)
+- Custom Authentication (via plugin extensions)
+
+## Plugin System
 
 The plugin system enables custom connectors through a stable API:
 
-1. Plugin authors implement the `PluginConnector` trait
-2. The `export_connector!` macro exposes the connector to the host application
-3. The `PluginConnector` wrapper loads and manages the plugin lifecycle
+1. Plugin authors implement the `PluginConnector` trait:
+```rust
+#[async_trait]
+pub trait PluginConnector: Connector + Send + Sync + 'static {
+    fn new() -> Self where Self: Sized;
+    fn get_version(&self) -> &str;
+    fn get_author(&self) -> &str;
+}
+```
+
+2. The `export_connector!` macro exposes the connector to the host application:
+```rust
+#[macro_export]
+macro_rules! export_connector {
+    ($connector_type:ty) => {
+        #[no_mangle]
+        pub extern "C" fn create_connector() -> *mut dyn Connector {
+            let connector = Box::new(<$connector_type>::new());
+            Box::into_raw(connector)
+        }
+    };
+}
+```
+
+3. The `PluginConnector` wrapper loads and manages the plugin lifecycle.
 
 ## Extensibility
 
 The system is designed to be extensible:
+
 - New connector types can be added with minimal changes to the core codebase
 - The plugin system allows for third-party extensions without modifying the source
-- The connector interface is stable and backward-compatible for future additions 
+- The connector interface is stable and backward-compatible for future additions
+
+## Dependencies
+
+The Connectors Module relies on several dependencies:
+
+- `gcp_auth`: For Google Cloud authentication
+- `libloading`: For the plugin system dynamic loading
+- `oauth2`: For OAuth authentication flows
+- `reqwest`: For making HTTP requests
+- `tokio`: For asynchronous processing
+- `serde`: For serialization and deserialization
+- `chrono`: For datetime handling
+
+## Future Enhancements
+
+Planned enhancements for the Connectors Module:
+
+1. Additional connector types:
+   - Salesforce
+   - Stripe
+   - Postgres/MySQL direct connections
+   - REST API generic connector
+
+2. Performance improvements:
+   - Connection pooling
+   - Caching layer
+   - Parallel data fetching
+
+3. Security enhancements:
+   - Enhanced credential management
+   - Fine-grained access control
+   - Auditing and logging 

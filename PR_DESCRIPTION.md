@@ -10,7 +10,8 @@ This PR implements the Connectors Module, a key component of the Muxly system th
   - GA4 connector for Google Analytics 4 metrics
   - HubSpot connector for CRM data
 - Created a plugin system for custom connector extensions
-- Updated project documentation to reflect implementation progress
+- Consolidated and expanded project documentation
+- Created comprehensive user and developer guides
 
 ## Technical Details
 
@@ -44,6 +45,21 @@ This PR implements the Connectors Module, a key component of the Muxly system th
 - Added type-safe interfaces for plugin registration
 - Implemented example plugin to demonstrate the API
 
+## Documentation Improvements
+- Completely restructured documentation for better organization:
+  - Created separate directories for user and developer documentation
+  - Consolidated duplicate documentation files
+  - Created a unified README for documentation navigation
+- Created comprehensive user guides:
+  - Configuration Guide with examples for all settings
+  - Connectors Guide for data source configuration
+  - Scheduler Guide for job scheduling
+  - Router Guide for data destination configuration
+- Enhanced developer documentation:
+  - Detailed implementation notes for connectors
+  - Known issues and future improvements
+  - Updated implementation plan
+
 ## Testing
 - Thorough unit tests for all connector implementations
 - Authentication and error handling test cases
@@ -55,11 +71,6 @@ This PR implements the Connectors Module, a key component of the Muxly system th
 - Added `libloading` for the plugin system
 - Added `oauth2` for OAuth authentication flows
 - Added other supporting libraries for HTTP requests and JSON processing
-
-## Documentation
-- Updated the project status document to reflect completion of this phase
-- Added inline documentation for all public APIs
-- Created configuration templates for all connector types
 
 ## Next Steps
 The next phase (Phase 3) will focus on implementing the Router Module to handle data destination routing. 

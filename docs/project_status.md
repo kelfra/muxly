@@ -23,7 +23,7 @@ Muxly is a lightweight, cross-platform service written in Rust that enables SaaS
 ## Project Structure
 
 ```
-metrics-hub/
+muxly/
 ├── src/
 │   ├── main.rs                 # Application entry point
 │   ├── api/                    # API layer and controllers
@@ -46,6 +46,8 @@ metrics-hub/
 ├── migrations/                 # Database migrations
 ├── config/                     # Default configurations
 ├── docs/                       # Documentation
+│   ├── development/            # Documentation for developers
+│   └── user-guide/             # Documentation for users
 └── scripts/                    # Deployment and utility scripts
 ```
 
@@ -92,6 +94,21 @@ Each connector includes:
 - Configuration templates for easy setup
 - Connection testing capabilities
 
+#### 4. Documentation
+We have created comprehensive documentation for both developers and users:
+
+- **Developer Documentation**:
+  - Implementation details for each module
+  - Known issues and future improvements
+  - Implementation plan for upcoming features
+
+- **User Documentation**:
+  - Configuration guide with examples
+  - Connectors usage and authentication
+  - Scheduler configuration and job setup
+  - Router configuration and destinations
+  - Troubleshooting guides
+
 ### In Progress Components
 Currently, there are no components actively in development as we are planning the next phase.
 
@@ -137,6 +154,7 @@ We need to implement database schema migrations for persistent storage of:
 - ✅ GA4 integration
 - ✅ HubSpot integration
 - ✅ Plugin system for custom connectors
+- ✅ Documentation for developers and users
 
 ### Phase 3: Router (2-3 weeks) - Next Phase
 - Router trait and base

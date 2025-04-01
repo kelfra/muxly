@@ -18,7 +18,30 @@ A lightweight, cross-platform service written in Rust that enables SaaS companie
 - **Route** data to various destinations (Prometheus, files, webhooks)
 - **Schedule** data syncs using cron, webhooks, or manual API triggers
 
-## Scheduler Modules
+## Documentation
+
+### User Documentation
+
+For users of Muxly, the following guides are available:
+
+- [**Getting Started**](docs/user-guide/README.md) - Overview of the user documentation
+- [**Configuration Guide**](docs/user-guide/configuration.md) - How to configure Muxly
+- [**Connectors Guide**](docs/user-guide/connectors.md) - Working with data source connectors
+- [**Scheduler Guide**](docs/user-guide/scheduler.md) - Automating data tasks
+- [**Router Guide**](docs/user-guide/router.md) - Defining data routes
+
+### Developer Documentation
+
+For developers working on Muxly, the following documentation is available:
+
+- [**Project Status**](docs/project_status.md) - Current project status and implementation progress
+- [**Implementation Plan**](docs/development/implementation_plan.md) - Detailed implementation plan
+- [**Connectors Implementation**](docs/development/connectors.md) - Details of connectors module implementation
+- [**Known Issues**](docs/development/known_issues.md) - Current known issues and limitations
+
+## Implemented Modules
+
+### Scheduler Module
 
 Muxly includes a robust scheduler system with three different scheduling mechanisms:
 
@@ -86,7 +109,7 @@ API endpoints:
 - `POST /jobs/:id/disable` - Disable a job
 - `GET /executions/:id` - Get job execution status
 
-## Configuration Module
+### Configuration Module
 
 Muxly includes a robust configuration system that provides flexible management of application settings:
 
@@ -144,9 +167,23 @@ For example:
 - `MUXLY_LOG_LEVEL=debug` sets the logging level
 - `MUXLY_DATABASE_URL=postgres://...` overrides the database connection
 
-## Integration
+### Connectors Module
 
-The scheduler modules can be used individually or integrated together using the `SchedulerIntegration` class, which provides a unified API for managing all scheduler types.
+Muxly provides integration with several data sources:
+
+#### Supported Connectors
+
+- **BigQuery**: Connect to Google BigQuery to extract data via SQL queries
+- **Google Analytics 4**: Connect to GA4 to retrieve analytics metrics and dimensions
+- **HubSpot**: Connect to HubSpot CRM to access contacts, companies, deals, and more
+- **Custom Plugins**: Extend Muxly with your own custom connectors
+
+#### Features
+
+- Multiple authentication methods (OAuth, API keys, service accounts)
+- Robust error handling and rate limiting
+- Data transformation to consistent JSON format
+- Customizable data fetching options
 
 ## Quick Start
 
@@ -154,162 +191,4 @@ The scheduler modules can be used individually or integrated together using the 
 
 The fastest way to get started with Muxly is using Docker:
 
-```bash
-# Clone the repository
-git clone https://github.com/kelfra/muxly.git
-cd muxly
-
-# Run the installation script
-./scripts/install/install.sh
 ```
-
-### Manual Installation
-
-If you prefer to install Muxly manually:
-
-```bash
-# Clone the repository
-git clone https://github.com/kelfra/muxly.git
-cd muxly
-
-# Create necessary directories
-mkdir -p data/output
-
-# Build and run with Docker Compose
-docker-compose build
-docker-compose up -d
-```
-
-## Configuration
-
-Muxly uses TOML configuration files. A sample configuration is provided at `config/muxly.toml.example`.
-
-### Main Configuration Sections
-
-- **Server**: API server settings
-- **Database**: Database configuration (SQLite or PostgreSQL)
-- **Connectors**: Data source configurations
-- **Outputs**: Data destination configurations
-
-### Example Configuration
-
-```toml
-[server]
-host = "0.0.0.0"
-port = 3000
-
-# SQLite database (default)
-[database]
-type = "sqlite"
-
-[database.sqlite]
-path = "./data/muxly.db"
-
-# Sample connector
-[[connectors]]
-id = "internal_api"
-name = "Internal API Connector"
-connector_type = "internal_api"
-enabled = true
-
-# Output configuration
-[[outputs]]
-type = "file"
-enabled = true
-```
-
-See the [full configuration example](config/muxly.toml.example) for more details.
-
-## Core Connectors
-
-Muxly supports the following connectors:
-
-### BigQuery Connector
-
-Connect to Google BigQuery to fetch data from SQL queries.
-
-```toml
-[[connectors]]
-id = "bigquery"
-name = "BigQuery Connector"
-connector_type = "bigquery"
-```
-
-### Google Analytics 4 Connector
-
-Fetch metrics and dimensions from Google Analytics 4 properties.
-
-```toml
-[[connectors]]
-id = "ga4"
-name = "GA4 Connector"
-connector_type = "ga4"
-```
-
-### HubSpot Connector
-
-Sync contacts, companies, and deals from HubSpot.
-
-```toml
-[[connectors]]
-id = "hubspot"
-name = "HubSpot Connector"
-connector_type = "hubspot"
-```
-
-### Internal API Connector
-
-Connect to your own internal APIs to fetch data.
-
-```toml
-[[connectors]]
-id = "internal_api"
-name = "Internal API Connector"
-connector_type = "internal_api"
-```
-
-## Output Destinations
-
-Muxly can route data to various destinations:
-
-- **File**: Save data to JSON, CSV, or JSONL files
-- **Prometheus**: Expose metrics for scraping by Prometheus
-- **Webhook**: Send data to custom HTTP endpoints
-
-## Self-Diagnostics
-
-Muxly includes a comprehensive self-diagnostics system:
-
-- **Health Checks**: API endpoint at `/health` for system status
-- **Connection Testing**: Test connectors before setting up full data pipelines
-- **Troubleshooting**: Detailed error messages and recovery suggestions
-
-## Development
-
-### Prerequisites
-
-- Rust 1.60 or later
-- SQLite or PostgreSQL
-- Docker and Docker Compose (for containerized deployment)
-
-### Building from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/kelfra/muxly.git
-cd muxly
-
-# Build the project
-cargo build --release
-
-# Run the service
-./target/release/muxly
-```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-[MIT License](LICENSE)

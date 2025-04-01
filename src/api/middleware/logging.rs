@@ -1,31 +1,30 @@
+use std::time::Instant;
+
+use anyhow::Result;
 use axum::{
     http::{Request, StatusCode},
     middleware::Next,
     response::Response,
 };
-use std::time::Instant;
-use tracing::{info, error};
+use tracing::{debug, info};
 
 /// Middleware for logging API requests
-pub async fn logging_middleware<B>(request: Request<B>, next: Next<B>) -> Result<Response, StatusCode> {
-    let path = request.uri().path().to_owned();
-    let method = request.method().clone();
-    
-    // Record the start time
+pub async fn logging_middleware<B>(
+    req: Request<B>,
+    next: Next<B>,
+) -> Result<Response, StatusCode> {
+    let path = req.uri().path().to_owned();
+    let method = req.method().clone();
     let start = Instant::now();
     
-    // Log the incoming request
-    info!("Request: {} {}", method, path);
+    debug!("Request: {} {}", method, path);
     
     // Process the request
-    let response = next.run(request).await;
+    let response = next.run(req).await;
     
-    // Calculate the elapsed time
-    let elapsed = start.elapsed();
-    
-    // Log the response
-    let status = response.status();
-    info!("Response: {} {} - {} - {:?}", method, path, status.as_u16(), elapsed);
+    // Log the response time
+    let duration = start.elapsed();
+    info!("Response: {} {} - {:?}", method, path, duration);
     
     Ok(response)
 } 
