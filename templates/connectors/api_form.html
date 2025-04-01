@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Muxly - Add Custom API Connector</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="/static/js/connectors.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Add Custom API Connector</h1>
+            <p>Configure a custom API endpoint to collect metrics</p>
+        </header>
+
+        <main>
+            <form id="api-connector-form" action="/api/v1/connectors/api" method="POST">
+                <div class="form-section">
+                    <h2>Basic Information</h2>
+                    <div class="form-group">
+                        <label for="connector-id">Connector ID</label>
+                        <input type="text" id="connector-id" name="id" required placeholder="e.g., my-metrics-api">
+                    </div>
+                    <div class="form-group">
+                        <label for="connector-name">Display Name</label>
+                        <input type="text" id="connector-name" name="name" required placeholder="e.g., My Metrics API">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>API Configuration</h2>
+                    <div class="form-group">
+                        <label for="base-url">Base URL</label>
+                        <input type="url" id="base-url" name="connection.base_url" required 
+                            placeholder="e.g., https://api.example.com/metrics/{endpoint}">
+                        <small>Use {param} for path parameters that can be replaced at runtime</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="http-method">HTTP Method</label>
+                        <select id="http-method" name="connection.method">
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                            <option value="PUT">PUT</option>
+                            <option value="PATCH">PATCH</option>
+                            <option value="DELETE">DELETE</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="metrics-path">Metrics JSON Path (Optional)</label>
+                        <input type="text" id="metrics-path" name="connection.metrics_path" 
+                            placeholder="e.g., data.metrics">
+                        <small>JSON path to extract specific metrics from the response</small>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Headers</h2>
+                    <div id="headers-container">
+                        <div class="header-row">
+                            <input type="text" name="header-keys[]" placeholder="Header Name">
+                            <input type="text" name="header-values[]" placeholder="Header Value">
+                            <button type="button" class="remove-btn">Remove</button>
+                        </div>
+                    </div>
+                    <button type="button" id="add-header" class="add-btn">Add Header</button>
+                </div>
+
+                <div class="form-section">
+                    <h2>Query Parameters</h2>
+                    <div id="params-container">
+                        <div class="param-row">
+                            <input type="text" name="param-keys[]" placeholder="Parameter Name">
+                            <input type="text" name="param-values[]" placeholder="Parameter Value">
+                            <button type="button" class="remove-btn">Remove</button>
+                        </div>
+                    </div>
+                    <button type="button" id="add-param" class="add-btn">Add Query Parameter</button>
+                </div>
+
+                <div class="form-section">
+                    <h2>Path Parameters</h2>
+                    <div id="path-params-container">
+                        <div class="path-param-row">
+                            <input type="text" name="path-param-keys[]" placeholder="Parameter Name">
+                            <input type="text" name="path-param-values[]" placeholder="Parameter Value">
+                            <button type="button" class="remove-btn">Remove</button>
+                        </div>
+                    </div>
+                    <button type="button" id="add-path-param" class="add-btn">Add Path Parameter</button>
+                </div>
+
+                <div class="form-section">
+                    <h2>Request Body (for POST/PUT/PATCH)</h2>
+                    <div class="form-group">
+                        <label for="body-template">JSON Body Template</label>
+                        <textarea id="body-template" name="connection.body_template" rows="5" 
+                            placeholder='{"key": "value", "filters": {"status": "active"}}'></textarea>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Authentication</h2>
+                    <div class="form-group">
+                        <label for="auth-type">Authentication Type</label>
+                        <select id="auth-type" name="auth.auth_type">
+                            <option value="none">None</option>
+                            <option value="bearer">Bearer Token</option>
+                            <option value="basic">Basic Auth</option>
+                            <option value="api_key">API Key</option>
+                        </select>
+                    </div>
+
+                    <!-- Bearer Token Authentication -->
+                    <div id="bearer-auth" class="auth-section">
+                        <div class="form-group">
+                            <label for="bearer-token">Bearer Token</label>
+                            <input type="password" id="bearer-token" name="auth.params.token" 
+                                placeholder="your-bearer-token">
+                        </div>
+                    </div>
+
+                    <!-- Basic Authentication -->
+                    <div id="basic-auth" class="auth-section">
+                        <div class="form-group">
+                            <label for="basic-username">Username</label>
+                            <input type="text" id="basic-username" name="auth.params.username" 
+                                placeholder="username">
+                        </div>
+                        <div class="form-group">
+                            <label for="basic-password">Password</label>
+                            <input type="password" id="basic-password" name="auth.params.password" 
+                                placeholder="password">
+                        </div>
+                    </div>
+
+                    <!-- API Key Authentication -->
+                    <div id="apikey-auth" class="auth-section">
+                        <div class="form-group">
+                            <label for="api-key">API Key</label>
+                            <input type="password" id="api-key" name="auth.params.api_key" 
+                                placeholder="your-api-key">
+                        </div>
+                        <div class="form-group">
+                            <label for="api-key-location">Location</label>
+                            <select id="api-key-location" name="auth.params.location">
+                                <option value="header">Header</option>
+                                <option value="query">Query Parameter</option>
+                            </select>
+                        </div>
+                        <div id="header-name-group" class="form-group">
+                            <label for="header-name">Header Name</label>
+                            <input type="text" id="header-name" name="auth.params.header_name" 
+                                placeholder="X-API-Key">
+                        </div>
+                        <div id="param-name-group" class="form-group">
+                            <label for="param-name">Parameter Name</label>
+                            <input type="text" id="param-name" name="auth.params.param_name" 
+                                placeholder="api_key">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Rate Limiting</h2>
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="enable-rate-limit" name="enable_rate_limit">
+                            <label for="enable-rate-limit">Enable Rate Limiting</label>
+                        </div>
+                    </div>
+                    <div id="rate-limit-settings">
+                        <div class="form-group">
+                            <label for="max-requests">Max Requests</label>
+                            <input type="number" id="max-requests" name="rate_limit.max_requests" 
+                                value="100" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="period-seconds">Period (seconds)</label>
+                            <input type="number" id="period-seconds" name="rate_limit.period_seconds" 
+                                value="60" min="1">
+                        </div>
+                        <div class="form-group">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="auto-adjust" name="rate_limit.auto_adjust" checked>
+                                <label for="auto-adjust">Auto-adjust based on API responses</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Retry Settings</h2>
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="enable-retry" name="enable_retry">
+                            <label for="enable-retry">Enable Retries</label>
+                        </div>
+                    </div>
+                    <div id="retry-settings">
+                        <div class="form-group">
+                            <label for="max-attempts">Max Attempts</label>
+                            <input type="number" id="max-attempts" name="retry.max_attempts" 
+                                value="3" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="initial-backoff">Initial Backoff (ms)</label>
+                            <input type="number" id="initial-backoff" name="retry.initial_backoff_ms" 
+                                value="1000" min="100">
+                        </div>
+                        <div class="form-group">
+                            <label for="max-backoff">Max Backoff (ms)</label>
+                            <input type="number" id="max-backoff" name="retry.max_backoff_ms" 
+                                value="30000" min="1000">
+                        </div>
+                        <div class="form-group">
+                            <label for="backoff-multiplier">Backoff Multiplier</label>
+                            <input type="number" id="backoff-multiplier" name="retry.backoff_multiplier" 
+                                value="2.0" min="1.0" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label for="retryable-errors">Retryable Errors (comma-separated)</label>
+                            <input type="text" id="retryable-errors" name="retry.retryable_errors" 
+                                value="RATE_LIMIT,SERVER_ERROR">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="test-connection" class="secondary-btn">Test Connection</button>
+                    <button type="submit" class="primary-btn">Save Connector</button>
+                </div>
+            </form>
+        </main>
+
+        <div id="test-result" class="hidden">
+            <h3>Connection Test Result</h3>
+            <div id="test-status"></div>
+            <pre id="test-details"></pre>
+        </div>
+    </div>
+
+    <script>
+        // Show/hide authentication sections based on selection
+        document.getElementById('auth-type').addEventListener('change', function() {
+            const authType = this.value;
+            document.querySelectorAll('.auth-section').forEach(section => {
+                section.style.display = 'none';
+            });
+            
+            if (authType === 'bearer') {
+                document.getElementById('bearer-auth').style.display = 'block';
+            } else if (authType === 'basic') {
+                document.getElementById('basic-auth').style.display = 'block';
+            } else if (authType === 'api_key') {
+                document.getElementById('apikey-auth').style.display = 'block';
+                updateApiKeyFields();
+            }
+        });
+
+        // Show/hide API key fields based on location
+        document.getElementById('api-key-location').addEventListener('change', updateApiKeyFields);
+
+        function updateApiKeyFields() {
+            const location = document.getElementById('api-key-location').value;
+            if (location === 'header') {
+                document.getElementById('header-name-group').style.display = 'block';
+                document.getElementById('param-name-group').style.display = 'none';
+            } else {
+                document.getElementById('header-name-group').style.display = 'none';
+                document.getElementById('param-name-group').style.display = 'block';
+            }
+        }
+
+        // Add header button functionality
+        document.getElementById('add-header').addEventListener('click', function() {
+            const container = document.getElementById('headers-container');
+            const newRow = document.createElement('div');
+            newRow.className = 'header-row';
+            newRow.innerHTML = `
+                <input type="text" name="header-keys[]" placeholder="Header Name">
+                <input type="text" name="header-values[]" placeholder="Header Value">
+                <button type="button" class="remove-btn">Remove</button>
+            `;
+            container.appendChild(newRow);
+            
+            newRow.querySelector('.remove-btn').addEventListener('click', function() {
+                container.removeChild(newRow);
+            });
+        });
+
+        // Add param button functionality
+        document.getElementById('add-param').addEventListener('click', function() {
+            const container = document.getElementById('params-container');
+            const newRow = document.createElement('div');
+            newRow.className = 'param-row';
+            newRow.innerHTML = `
+                <input type="text" name="param-keys[]" placeholder="Parameter Name">
+                <input type="text" name="param-values[]" placeholder="Parameter Value">
+                <button type="button" class="remove-btn">Remove</button>
+            `;
+            container.appendChild(newRow);
+            
+            newRow.querySelector('.remove-btn').addEventListener('click', function() {
+                container.removeChild(newRow);
+            });
+        });
+
+        // Add path param button functionality
+        document.getElementById('add-path-param').addEventListener('click', function() {
+            const container = document.getElementById('path-params-container');
+            const newRow = document.createElement('div');
+            newRow.className = 'path-param-row';
+            newRow.innerHTML = `
+                <input type="text" name="path-param-keys[]" placeholder="Parameter Name">
+                <input type="text" name="path-param-values[]" placeholder="Parameter Value">
+                <button type="button" class="remove-btn">Remove</button>
+            `;
+            container.appendChild(newRow);
+            
+            newRow.querySelector('.remove-btn').addEventListener('click', function() {
+                container.removeChild(newRow);
+            });
+        });
+
+        // Enable/disable rate limit settings
+        document.getElementById('enable-rate-limit').addEventListener('change', function() {
+            document.getElementById('rate-limit-settings').style.display = this.checked ? 'block' : 'none';
+        });
+
+        // Enable/disable retry settings
+        document.getElementById('enable-retry').addEventListener('change', function() {
+            document.getElementById('retry-settings').style.display = this.checked ? 'block' : 'none';
+        });
+
+        // Test connection button
+        document.getElementById('test-connection').addEventListener('click', async function() {
+            const form = document.getElementById('api-connector-form');
+            const formData = new FormData(form);
+            const jsonData = formDataToJson(formData);
+            
+            try {
+                const response = await fetch('/api/v1/connectors/api/test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(jsonData)
+                });
+                
+                const result = await response.json();
+                const testResult = document.getElementById('test-result');
+                const testStatus = document.getElementById('test-status');
+                const testDetails = document.getElementById('test-details');
+                
+                testResult.classList.remove('hidden');
+                
+                if (result.status === 'connected') {
+                    testStatus.innerHTML = '<div class="success">✓ Connected Successfully</div>';
+                } else {
+                    testStatus.innerHTML = `<div class="error">✗ Connection Failed: ${result.status}</div>`;
+                }
+                
+                testDetails.textContent = JSON.stringify(result, null, 2);
+            } catch (error) {
+                console.error('Test connection error:', error);
+                alert('Error testing connection: ' + error.message);
+            }
+        });
+
+        // Helper function to convert FormData to JSON
+        function formDataToJson(formData) {
+            const result = {
+                id: '',
+                name: '',
+                connector_type: 'api',
+                enabled: true,
+                auth: {
+                    auth_type: '',
+                    params: {}
+                },
+                connection: {
+                    headers: {},
+                    query_params: {},
+                    path_params: {}
+                }
+            };
+            
+            // Process form data
+            for (const [key, value] of formData.entries()) {
+                if (key === 'id') result.id = value;
+                if (key === 'name') result.name = value;
+                if (key === 'connection.base_url') result.connection.base_url = value;
+                if (key === 'connection.method') result.connection.method = value;
+                if (key === 'connection.metrics_path') result.connection.metrics_path = value;
+                if (key === 'connection.body_template') {
+                    try {
+                        result.connection.body_template = JSON.parse(value);
+                    } catch (e) {
+                        // Invalid JSON, keep as string
+                        if (value) result.connection.body_template = value;
+                    }
+                }
+                
+                if (key === 'auth.auth_type') result.auth.auth_type = value;
+                if (key.startsWith('auth.params.')) {
+                    const paramName = key.replace('auth.params.', '');
+                    result.auth.params[paramName] = value;
+                }
+                
+                if (key === 'enable_rate_limit' && value === 'on') {
+                    result.rate_limit = {};
+                }
+                if (key.startsWith('rate_limit.') && result.rate_limit) {
+                    const paramName = key.replace('rate_limit.', '');
+                    if (paramName === 'auto_adjust') {
+                        result.rate_limit[paramName] = (value === 'on');
+                    } else if (paramName === 'max_requests' || paramName === 'period_seconds') {
+                        result.rate_limit[paramName] = parseInt(value, 10);
+                    } else {
+                        result.rate_limit[paramName] = value;
+                    }
+                }
+                
+                if (key === 'enable_retry' && value === 'on') {
+                    result.retry = {};
+                }
+                if (key.startsWith('retry.') && result.retry) {
+                    const paramName = key.replace('retry.', '');
+                    if (paramName === 'retryable_errors') {
+                        result.retry[paramName] = value.split(',').map(v => v.trim());
+                    } else if (['max_attempts', 'initial_backoff_ms', 'max_backoff_ms'].includes(paramName)) {
+                        result.retry[paramName] = parseInt(value, 10);
+                    } else if (paramName === 'backoff_multiplier') {
+                        result.retry[paramName] = parseFloat(value);
+                    } else {
+                        result.retry[paramName] = value;
+                    }
+                }
+            }
+            
+            // Process arrays
+            const headerKeys = Array.from(formData.getAll('header-keys[]'));
+            const headerValues = Array.from(formData.getAll('header-values[]'));
+            headerKeys.forEach((key, index) => {
+                if (key && headerValues[index]) {
+                    result.connection.headers[key] = headerValues[index];
+                }
+            });
+            
+            const paramKeys = Array.from(formData.getAll('param-keys[]'));
+            const paramValues = Array.from(formData.getAll('param-values[]'));
+            paramKeys.forEach((key, index) => {
+                if (key && paramValues[index]) {
+                    result.connection.query_params[key] = paramValues[index];
+                }
+            });
+            
+            const pathParamKeys = Array.from(formData.getAll('path-param-keys[]'));
+            const pathParamValues = Array.from(formData.getAll('path-param-values[]'));
+            pathParamKeys.forEach((key, index) => {
+                if (key && pathParamValues[index]) {
+                    result.connection.path_params[key] = pathParamValues[index];
+                }
+            });
+            
+            return result;
+        }
+
+        // Initialize UI elements
+        document.getElementById('rate-limit-settings').style.display = 'none';
+        document.getElementById('retry-settings').style.display = 'none';
+        document.querySelectorAll('.auth-section').forEach(section => {
+            section.style.display = 'none';
+        });
+        
+        // Add event listeners to initial buttons
+        document.querySelectorAll('.remove-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const row = this.parentElement;
+                row.parentElement.removeChild(row);
+            });
+        });
+    </script>
+</body>
+</html> 

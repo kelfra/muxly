@@ -128,6 +128,10 @@ pub fn create_connector(connector_type: &str) -> Result<Box<dyn Connector>> {
             let connector = crate::connectors::plugin::PluginConnector::new();
             Ok(Box::new(connector))
         },
+        "api" => {
+            let connector = crate::connectors::api::APIConnector::new();
+            Ok(Box::new(connector))
+        },
         _ => Err(anyhow::anyhow!("Unsupported connector type: {}", connector_type)),
     }
 }

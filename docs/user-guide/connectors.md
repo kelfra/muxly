@@ -9,7 +9,8 @@ Muxly supports the following data source connectors:
 1. **BigQuery**: Connect to Google BigQuery to extract data via SQL queries
 2. **Google Analytics 4**: Connect to GA4 to retrieve analytics metrics and dimensions
 3. **HubSpot**: Connect to HubSpot CRM to access contacts, companies, deals, and more
-4. **Custom Plugins**: Extend Muxly with your own custom connectors
+4. **Custom API**: Connect to any RESTful API endpoint to fetch custom metrics
+5. **Custom Plugins**: Extend Muxly with your own custom connectors
 
 ## General Configuration
 
@@ -19,7 +20,7 @@ All connectors share a common configuration structure:
 connectors:
   - id: "my-connector"
     name: "My Connector"
-    connector_type: "bigquery"  # One of: bigquery, ga4, hubspot, plugin
+    connector_type: "bigquery"  # One of: bigquery, ga4, hubspot, api, plugin
     enabled: true
     auth:
       auth_type: "service_account"  # Depends on connector type
@@ -222,6 +223,164 @@ To fetch data from HubSpot, use the connector's `fetch_data` method with object 
     "value": "2023-01-01T00:00:00Z"
   }
 }
+```
+
+## Custom API Connector
+
+The Custom API connector allows you to connect to any RESTful API endpoint to fetch metrics data.
+
+### Authentication
+
+The API connector supports multiple authentication methods:
+
+1. **Bearer Token**:
+```yaml
+auth:
+  auth_type: "bearer"
+  params:
+    token: "your-bearer-token"
+```
+
+2. **Basic Auth**:
+```yaml
+auth:
+  auth_type: "basic"
+  params:
+    username: "your-username"
+    password: "your-password"
+```
+
+3. **API Key**:
+```yaml
+auth:
+  auth_type: "api_key"
+  params:
+    api_key: "your-api-key"
+    location: "header"  # header, query
+    header_name: "X-API-Key"  # Only needed if location is header
+    param_name: "api_key"  # Only needed if location is query
+```
+
+4. **No Authentication**:
+```yaml
+auth:
+  auth_type: "none"
+  params: {}
+```
+
+### Connection Settings
+
+```yaml
+connection:
+  base_url: "https://api.example.com/metrics/{endpoint}"  # URL with optional path parameters
+  method: "GET"  # HTTP method: GET, POST, PUT, PATCH, DELETE
+  headers:  # Optional headers
+    Content-Type: "application/json"
+    Accept: "application/json"
+  query_params:  # Optional query parameters
+    start_date: "2023-01-01"
+    end_date: "2023-01-31"
+  path_params:  # Optional path parameters for the URL
+    endpoint: "users"
+  body_template:  # Optional request body for POST/PUT/PATCH requests
+    filters:
+      status: "active"
+  metrics_path: "data.metrics"  # Optional JSON path to extract metrics from response
+```
+
+### Usage Example
+
+To fetch data from a custom API, use the connector's `fetch_data` method:
+
+```json
+{
+  "path_params": {
+    "endpoint": "sales"
+  },
+  "query_params": {
+    "start_date": "2023-01-01",
+    "end_date": "2023-01-31",
+    "region": "US"
+  },
+  "headers": {
+    "X-Custom-Header": "value"
+  },
+  "body": {
+    "additional_filters": {
+      "product_category": "electronics"
+    }
+  }
+}
+```
+
+### Examples for Common API Services
+
+#### Stripe API Example:
+
+```yaml
+connectors:
+  - id: "stripe-metrics"
+    name: "Stripe Revenue Metrics"
+    connector_type: "api"
+    enabled: true
+    auth:
+      auth_type: "bearer"
+      params:
+        token: "sk_test_your_stripe_secret_key"
+    connection:
+      base_url: "https://api.stripe.com/v1/balance_transactions"
+      method: "GET"
+      headers:
+        Content-Type: "application/x-www-form-urlencoded"
+      query_params:
+        limit: "100"
+      metrics_path: "data"
+```
+
+#### GitHub API Example:
+
+```yaml
+connectors:
+  - id: "github-repo-stats"
+    name: "GitHub Repository Statistics"
+    connector_type: "api"
+    enabled: true
+    auth:
+      auth_type: "bearer"
+      params:
+        token: "your-github-personal-access-token"
+    connection:
+      base_url: "https://api.github.com/repos/{owner}/{repo}/stats/contributors"
+      method: "GET"
+      headers:
+        Accept: "application/vnd.github.v3+json"
+      path_params:
+        owner: "your-org"
+        repo: "your-repo"
+```
+
+#### Custom Internal API Example:
+
+```yaml
+connectors:
+  - id: "internal-metrics"
+    name: "Internal Metrics API"
+    connector_type: "api"
+    enabled: true
+    auth:
+      auth_type: "api_key"
+      params:
+        api_key: "your-internal-api-key"
+        location: "header"
+        header_name: "X-API-Key"
+    connection:
+      base_url: "https://metrics.internal.company.com/api/{metric_type}"
+      method: "GET"
+      path_params:
+        metric_type: "users"
+      query_params:
+        period: "daily"
+      metrics_path: "data.stats"
 ```
 
 ## Custom Plugin Connectors

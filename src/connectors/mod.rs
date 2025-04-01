@@ -5,6 +5,7 @@ mod bigquery;
 mod ga4;
 mod hubspot;
 mod plugin;
+mod api;
 
 // Re-export the base module components
 pub use base::{
@@ -22,4 +23,5 @@ pub use base::{
 pub use bigquery::BigQueryConnector;
 pub use ga4::GA4Connector;
 pub use hubspot::HubSpotConnector;
-pub use plugin::PluginConnector; 
+pub use plugin::PluginConnector;
+pub use api::APIConnector; 
